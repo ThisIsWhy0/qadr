@@ -1,0 +1,21 @@
+{
+  "name": "qadr",
+  "version": "1.0.0",
+  "description": "Qadr — Predict. Earn. Win.",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "init-db": "node api/init-db.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^10.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

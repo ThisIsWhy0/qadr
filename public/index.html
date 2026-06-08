@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qadr — Predict anything. Earn on everything.</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   QADR — Polymarket-inspired · Light + Dark mode
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Light theme (default) ── */
+:root,[data-theme="light"]{
+  --bg:#ffffff;--bg2:#f7f8fa;--bg3:#eef0f3;
+  --card:#ffffff;--card-hover:#fafbfc;
+  --border:#e5e7eb;--border2:#d1d5db;--border3:#9ca3af;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);
+  --shadow-lg:0 4px 14px rgba(0,0,0,.06);
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;--green-text:#15803d;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;--red-text:#b91c1c;
+  --blue:#2563eb;--blue-bg:#eff6ff;
+  --accent:#6366f1;--accent-hover:#4f46e5;--accent-bg:rgba(99,102,241,.06);
+  --radius:8px;--radius-lg:12px;--radius-xl:16px;
+  --header-bg:rgba(255,255,255,.85);
+  --chart-grid:#f0f0f0;
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"]{
+  --bg:#0b0d11;--bg2:#13161c;--bg3:#1a1e27;
+  --card:#161a22;--card-hover:#1c2029;
+  --border:#252a35;--border2:#333945;--border3:#4b5563;
+  --text:#e5e7eb;--text2:#9ca3af;--text3:#6b7280;
+  --shadow:0 1px 3px rgba(0,0,0,.2);
+  --shadow-lg:0 4px 14px rgba(0,0,0,.3);
+  --green:#22c55e;--green-bg:rgba(34,197,94,.08);--green-border:rgba(34,197,94,.2);--green-text:#4ade80;
+  --red:#ef4444;--red-bg:rgba(239,68,68,.08);--red-border:rgba(239,68,68,.2);--red-text:#f87171;
+  --blue:#3b82f6;--blue-bg:rgba(59,130,246,.08);
+  --accent:#818cf8;--accent-hover:#6366f1;--accent-bg:rgba(129,140,248,.08);
+  --radius:8px;--radius-lg:12px;--radius-xl:16px;
+  --header-bg:rgba(11,13,17,.85);
+  --chart-grid:#1e2330;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:inherit;color:var(--text)}
+input,select,textarea{font-family:inherit;font-size:inherit;color:var(--text);background:var(--bg)}
+
+/* ── Layout ── */
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+@media(max-width:768px){.container{padding:0 16px}}
+
+/* ── Nav ── */
+nav{background:var(--header-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;height:56px;display:flex;align-items:center;transition:background .2s}
+nav .container{display:flex;align-items:center;justify-content:space-between;width:100%;gap:16px}
+.logo{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.5px;cursor:pointer;flex-shrink:0}
+.logo span{color:var(--accent)}
+.nav-links{display:flex;align-items:center;gap:20px}
+.nav-links a{color:var(--text2);font-size:13px;font-weight:500;text-decoration:none;transition:color .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.search-box{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;gap:6px;width:220px;transition:border-color .15s}
+.search-box:focus-within{border-color:var(--accent)}
+.search-box input{border:none;background:none;outline:none;width:100%;font-size:13px;color:var(--text)}
+.search-box svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
+
+/* Theme toggle */
+.theme-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);transition:all .2s;color:var(--text2)}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.theme-btn svg{width:16px;height:16px}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:var(--radius);font-size:13px;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);text-decoration:none}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-text);text-decoration:none}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-text);text-decoration:none}
+.btn-outline{border:1px solid var(--border2);color:var(--text);background:var(--bg)}
+.btn-outline:hover{border-color:var(--text3);background:var(--bg2);text-decoration:none}
+.btn-ghost{color:var(--text2)}
+.btn-ghost:hover{color:var(--text);text-decoration:none}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-lg{padding:10px 24px;font-size:14px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Hero ── */
+.hero{padding:48px 0 32px;text-align:center;background:var(--bg)}
+.hero h1{font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1.15;margin-bottom:12px}
+.hero h1 span{color:var(--accent)}
+.hero p{color:var(--text2);font-size:16px;max-width:520px;margin:0 auto 24px}
+.hero .btn-group{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-stats{display:flex;justify-content:center;gap:48px;margin-top:32px;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat .num{font-size:24px;font-weight:800;color:var(--text)}
+.hero-stat .label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ── Section ── */
+section{padding:32px 0}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.section-title{font-size:18px;font-weight:700}
+.section-sub{font-size:13px;color:var(--text2)}
+
+/* ── Category Tabs ── */
+.cat-tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;scrollbar-width:none}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:500;color:var(--text2);background:var(--bg2);border:1px solid transparent;white-space:nowrap;transition:all .15s}
+.cat-tab:hover{border-color:var(--border2);color:var(--text)}
+.cat-tab.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* ── Market Card ── */
+.market-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;transition:all .2s;cursor:pointer}
+.market-card:hover{border-color:var(--border2);background:var(--card-hover);box-shadow:var(--shadow-lg)}
+.market-card .card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.market-card .card-icon{width:36px;height:36px;border-radius:8px;object-fit:cover;background:var(--bg2);flex-shrink:0}
+.market-card .card-title{font-size:14px;font-weight:600;line-height:1.4;color:var(--text);flex:1}
+.market-card .card-meta{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--text3);flex-wrap:wrap}
+.market-card .card-meta .tag{padding:2px 8px;border-radius:4px;background:var(--bg2);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+
+/* ── Probability Bar (binary) ── */
+.prob-bar{display:flex;height:32px;border-radius:6px;overflow:hidden;margin-bottom:12px;position:relative}
+.prob-bar .yes-side{background:var(--green);display:flex;align-items:center;padding:0 10px;font-size:12px;font-weight:700;color:#fff;transition:width .3s}
+.prob-bar .no-side{background:var(--red);display:flex;align-items:center;justify-content:flex-end;padding:0 10px;font-size:12px;font-weight:700;color:#fff;flex:1;transition:width .3s}
+
+/* ── Multi-outcome probabilities ── */
+.multi-outcomes{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.multi-row{display:flex;align-items:center;gap:10px}
+.multi-row .label{font-size:12px;font-weight:500;color:var(--text);min-width:80px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.multi-row .bar-track{flex:1;height:24px;background:var(--bg2);border-radius:4px;overflow:hidden;position:relative}
+.multi-row .bar-fill{height:100%;border-radius:4px;transition:width .3s;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;color:#fff;min-width:fit-content}
+.multi-row .pct{font-size:12px;font-weight:600;color:var(--text2);min-width:36px;text-align:right}
+
+/* ── Card Footer ── */
+.card-footer{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text3)}
+.card-footer .change{font-weight:600}
+.card-footer .change.up{color:var(--green)}
+.card-footer .change.down{color:var(--red)}
+
+/* ── Markets Grid ── */
+.markets-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px}
+@media(max-width:768px){.markets-grid{grid-template-columns:1fr}}
+
+/* ── Featured Market ── */
+.featured-market{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;margin-bottom:24px}
+.featured-market h2{font-size:20px;font-weight:700;margin-bottom:8px}
+.featured-market .desc{color:var(--text2);font-size:14px;margin-bottom:16px}
+
+/* ── Chart ── */
+.chart-area{background:var(--bg2);border-radius:var(--radius);height:220px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;overflow:hidden;border:1px solid var(--border)}
+.chart-area canvas{width:100%;height:100%}
+
+/* ── Market Detail ── */
+.market-detail-header{padding:24px 0;border-bottom:1px solid var(--border);margin-bottom:24px}
+.market-detail-header h1{font-size:24px;font-weight:700;margin-bottom:8px}
+.market-detail-header .meta{display:flex;gap:16px;font-size:13px;color:var(--text2);flex-wrap:wrap}
+
+/* ── Trade Panel ── */
+.trade-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;position:sticky;top:80px}
+.trade-panel h3{font-size:16px;font-weight:700;margin-bottom:16px}
+.trade-panel .outcome-btns{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.trade-panel .outcome-btn{padding:12px;border-radius:var(--radius);border:2px solid var(--border);font-weight:600;font-size:14px;text-align:left;transition:all .15s;display:flex;justify-content:space-between;align-items:center}
+.trade-panel .outcome-btn:hover{border-color:var(--border2)}
+.trade-panel .outcome-btn.selected{border-color:var(--accent);background:var(--accent-bg)}
+.trade-panel .outcome-btn .pct{font-size:16px;font-weight:800}
+.trade-panel .input-group{margin-bottom:12px}
+.trade-panel .input-group label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.trade-panel .input-group input,.trade-panel .input-group select{width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);font-size:14px}
+.trade-panel .input-group input:focus,.trade-panel .input-group select:focus{border-color:var(--accent);outline:none}
+.trade-panel .return-calc{background:var(--bg2);border-radius:var(--radius);padding:12px;margin-bottom:12px;font-size:13px}
+.trade-panel .return-calc .row{display:flex;justify-content:space-between;margin-bottom:4px}
+.trade-panel .return-calc .row:last-child{margin-bottom:0;font-weight:700;border-top:1px solid var(--border);padding-top:4px;margin-top:4px}
+
+/* ── Auth Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
+[data-theme="dark"] .modal-overlay{background:rgba(0,0,0,.6)}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:100%;max-width:400px;box-shadow:var(--shadow-lg)}
+.modal h2{font-size:20px;font-weight:700;margin-bottom:20px;text-align:center}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.form-group input{width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);font-size:14px}
+.form-group input:focus{border-color:var(--accent);outline:none}
+.modal .btn{width:100%;margin-top:8px}
+.modal .switch{text-align:center;margin-top:12px;font-size:13px;color:var(--text2)}
+.modal .switch a{color:var(--accent);cursor:pointer}
+.hidden{display:none!important}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:2000;animation:slideUp .25s}
+.toast-ok{background:var(--green);color:#fff}
+.toast-err{background:var(--red);color:#fff}
+@keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── Leaderboard ── */
+.lb-table{width:100%;border-collapse:collapse}
+.lb-table th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border);font-weight:600}
+.lb-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.lb-table tr:hover td{background:var(--bg2)}
+.rank-gold{color:#f59e0b;font-weight:800}
+.rank-silver{color:#9ca3af;font-weight:700}
+.rank-bronze{color:#cd7f32;font-weight:700}
+
+/* ── Prizes ── */
+.prize-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;text-align:center;transition:all .2s}
+.prize-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.prize-icon{font-size:28px;margin-bottom:8px}
+.prize-card h4{font-size:14px;font-weight:600;margin-bottom:4px}
+.prize-cost{font-size:13px;color:var(--accent);font-weight:700}
+
+/* ── Profile ── */
+.profile-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.stat-card .val{font-size:22px;font-weight:800;color:var(--text)}
+.stat-card .lbl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ── Sparkline ── */
+.sparkline{width:80px;height:28px}
+
+/* ── Footer ── */
+footer{border-top:1px solid var(--border);padding:32px 0;margin-top:48px;text-align:center;font-size:12px;color:var(--text3)}
+footer a{color:var(--text2);margin:0 8px}
+
+/* ── Sort dropdown ── */
+.sort-select{padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border2);font-size:13px;background:var(--bg);color:var(--text)}
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav>
+  <div class="container">
+    <div class="logo" onclick="showPage('home')">Q<span>adr</span></div>
+    <div class="nav-links" id="nav-links" style="display:none">
+      <a href="#" onclick="showPage('home');return false" class="active">Markets</a>
+      <a href="#" onclick="showPage('leaderboard');return false">Leaderboard</a>
+      <a href="#" onclick="showPage('prizes');return false">Prizes</a>
+    </div>
+    <div class="nav-right">
+      <div class="search-box" id="nav-search" style="display:none">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+        <input type="text" placeholder="Search markets..." id="search-input" onkeydown="if(event.key==='Enter')doSearch()">
+      </div>
+      <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme" id="theme-btn">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <div id="nav-auth">
+        <button class="btn btn-outline btn-sm" onclick="showAuth('signin')">Log In</button>
+        <button class="btn btn-primary btn-sm" onclick="showAuth('signup')">Sign Up</button>
+      </div>
+      <div id="nav-user" class="hidden" style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:var(--bg2);border-radius:20px;font-size:13px;font-weight:600">
+          <span>🪙</span> <span id="nav-coins">0</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('profile')">Profile</button>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ AUTH MODAL ═══ -->
+<div class="modal-overlay hidden" id="auth-modal" onclick="if(event.target===this)closeAuth()">
+  <div class="modal">
+    <h2 id="auth-title">Create Account</h2>
+    <div class="form-group"><label>Username</label><input type="text" id="auth-username" placeholder="Choose a username"></div>
+    <div class="form-group" id="auth-email-g"><label>Email</label><input type="email" id="auth-email" placeholder="you@email.com"></div>
+    <div class="form-group" id="auth-display-g"><label>Display Name</label><input type="text" id="auth-display" placeholder="How you want to be known"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="auth-password" placeholder="Min 6 characters"></div>
+    <div class="form-group hidden" id="auth-ref-g"><label>Referral Code (optional)</label><input type="text" id="auth-ref" placeholder="Enter code"></div>
+    <button class="btn btn-primary" id="auth-submit" onclick="handleAuth()">Sign Up</button>
+    <div class="switch" id="auth-switch">Already have an account? <a onclick="showAuth('signin')">Log In</a></div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- ═══ PAGES ═══ -->
+
+<!-- HOME -->
+<div id="page-home">
+  <section class="hero">
+    <div class="container">
+      <h1>Predict anything.<br><span>Earn on everything.</span></h1>
+      <p>Real stakes, zero risk. Trade your predictions on real-world events. No gambling. No real money required.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-lg" onclick="showAuth('signup')">Start Predicting — Free</button>
+        <button class="btn btn-outline btn-lg" onclick="document.getElementById('markets-section').scrollIntoView({behavior:'smooth'})">Browse Markets</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="num" id="stat-markets">—</div><div class="label">Active Markets</div></div>
+        <div class="hero-stat"><div class="num" id="stat-volume">—</div><div class="label">24h Volume</div></div>
+        <div class="hero-stat"><div class="num" id="stat-users">—</div><div class="label">Predictors</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="markets-section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Markets</h2>
+          <p class="section-sub">Trade on real-world outcomes</p>
+        </div>
+        <select id="sort-select" onchange="loadMarkets()" class="sort-select">
+          <option value="volume24hr">Most Active</option>
+          <option value="volume">Total Volume</option>
+          <option value="liquidity">Most Liquid</option>
+        </select>
+      </div>
+      <div class="cat-tabs" id="cat-tabs"></div>
+      <div class="markets-grid" id="markets-grid">
+        <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text3)">Loading markets...</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- MARKET DETAIL -->
+<div id="page-market" class="hidden">
+  <div class="container">
+    <div class="market-detail-header">
+      <button class="btn btn-ghost btn-sm" onclick="showPage('home')" style="margin-bottom:12px">← All Markets</button>
+      <h1 id="md-question"></h1>
+      <div class="meta" id="md-meta"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start">
+      <div>
+        <div class="chart-area" id="md-chart"><canvas id="priceChart"></canvas></div>
+        <div id="md-description" style="font-size:14px;color:var(--text2);line-height:1.7"></div>
+      </div>
+      <div class="trade-panel" id="md-trade">
+        <h3>Trade</h3>
+        <div class="outcome-btns" id="md-outcome-btns"></div>
+        <div class="input-group">
+          <label>Amount (coins)</label>
+          <input type="number" id="trade-amount" value="50" min="10" oninput="updateReturnCalc()">
+        </div>
+        <div class="return-calc" id="return-calc"></div>
+        <button class="btn btn-primary" style="width:100%" id="trade-btn" onclick="placeTrade()">Place Trade</button>
+        <p style="font-size:11px;color:var(--text3);margin-top:10px;text-align:center" id="trade-login-msg"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="page-leaderboard" class="hidden">
+  <section><div class="container">
+    <h2 class="section-title" style="margin-bottom:20px">Leaderboard</h2>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+      <table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>Correct</th><th>Accuracy</th><th>Streak</th><th>Coins</th></tr></thead><tbody id="lb-body"></tbody></table>
+    </div>
+  </div></section>
+</div>
+
+<!-- PRIZES -->
+<div id="page-prizes" class="hidden">
+  <section><div class="container">
+    <h2 class="section-title" style="margin-bottom:8px">Redeem Prizes</h2>
+    <p class="section-sub" style="margin-bottom:20px">Turn your coins into real rewards</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px" id="prizes-grid"></div>
+  </div></section>
+</div>
+
+<!-- PROFILE -->
+<div id="page-profile" class="hidden">
+  <section><div class="container">
+    <h2 class="section-title" style="margin-bottom:20px">My Profile</h2>
+    <div id="profile-content"></div>
+  </div></section>
+</div>
+
+<footer>
+  <div class="container">
+    <a href="#" onclick="showPage('home');return false">Markets</a>
+    <a href="#" onclick="showPage('leaderboard');return false">Leaderboard</a>
+    <a href="#" onclick="showPage('prizes');return false">Prizes</a>
+    <span style="margin-left:16px">© 2026 Qadr. Predict anything. Earn on everything.</span>
+  </div>
+</footer>
+
+<script>
+const API = "";
+let token = localStorage.getItem("qadr_token") || null;
+let currentUser = null;
+let currentMarket = null;
+let selectedOutcome = null;
+let allMarkets = [];
+let activeCat = "";
+
+// ── Theme ──
+function initTheme() {
+  const saved = localStorage.getItem("qadr_theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme:dark)").matches;
+  const theme = saved || (prefersDark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+  updateThemeIcon(theme);
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("qadr_theme", next);
+  updateThemeIcon(next);
+  // Redraw chart if on market page
+  if (currentMarket) drawChart(currentMarket);
+}
+function updateThemeIcon(theme) {
+  document.getElementById("icon-sun").style.display = theme === "dark" ? "" : "none";
+  document.getElementById("icon-moon").style.display = theme === "light" ? "" : "none";
+}
+
+// ── Helpers ──
+async function api(path, opts = {}) {
+  const h = { "Content-Type": "application/json" };
+  if (token) h["Authorization"] = "Bearer " + token;
+  const r = await fetch(API + path, { headers: h, ...opts });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || "Request failed");
+  return d;
+}
+function toast(msg, ok = true) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast " + (ok ? "toast-ok" : "toast-err");
+  setTimeout(() => el.className = "toast hidden", 3000);
+}
+function fmt(n) {
+  if (!n) return "$0";
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "K";
+  return "$" + n.toFixed(0);
+}
+function pct(n) { return (n * 100).toFixed(1) + "%"; }
+function showPage(p) {
+  document.querySelectorAll("[id^='page-']").forEach(el => el.classList.add("hidden"));
+  document.getElementById("page-" + p).classList.remove("hidden");
+  document.querySelectorAll(".nav-links a").forEach(a => a.classList.remove("active"));
+  if (p === "home") loadMarkets();
+  if (p === "leaderboard") loadLeaderboard();
+  if (p === "prizes") loadPrizes();
+  if (p === "profile") loadProfile();
+  window.scrollTo(0, 0);
+}
+function updateNav() {
+  const authed = token && currentUser;
+  document.getElementById("nav-auth").classList.toggle("hidden", authed);
+  document.getElementById("nav-user").classList.toggle("hidden", !authed);
+  document.getElementById("nav-links").style.display = "flex";
+  document.getElementById("nav-search").style.display = "flex";
+  if (authed) document.getElementById("nav-coins").textContent = currentUser.coins;
+}
+
+// ── Auth ──
+function showAuth(mode) {
+  document.getElementById("auth-modal").classList.remove("hidden");
+  document.getElementById("auth-title").textContent = mode === "signup" ? "Create Account" : "Log In";
+  document.getElementById("auth-submit").textContent = mode === "signup" ? "Sign Up" : "Log In";
+  document.getElementById("auth-email-g").classList.toggle("hidden", mode === "signin");
+  document.getElementById("auth-display-g").classList.toggle("hidden", mode === "signin");
+  document.getElementById("auth-ref-g").classList.toggle("hidden", mode === "signin");
+  document.getElementById("auth-switch").innerHTML = mode === "signup"
+    ? 'Already have an account? <a onclick="showAuth(\'signin\')">Log In</a>'
+    : 'New here? <a onclick="showAuth(\'signup\')">Create Account</a>';
+  window._authMode = mode;
+}
+function closeAuth() { document.getElementById("auth-modal").classList.add("hidden"); }
+async function handleAuth() {
+  const mode = window._authMode;
+  const username = document.getElementById("auth-username").value.trim();
+  const password = document.getElementById("auth-password").value;
+  if (!username || !password) return toast("Fill in all fields", false);
+  try {
+    if (mode === "signup") {
+      const email = document.getElementById("auth-email").value.trim();
+      const dn = document.getElementById("auth-display").value.trim();
+      const ref = document.getElementById("auth-ref").value.trim();
+      if (!email) return toast("Email required", false);
+      const d = await api("/api/auth/signup", { method: "POST", body: JSON.stringify({ username, email, password, displayName: dn, referralCode: ref || undefined }) });
+      token = d.token; currentUser = d.user;
+    } else {
+      const d = await api("/api/auth/signin", { method: "POST", body: JSON.stringify({ username, password }) });
+      token = d.token; currentUser = d.user;
+    }
+    localStorage.setItem("qadr_token", token);
+    closeAuth(); updateNav();
+    toast(mode === "signup" ? "Welcome! 500 coins added." : "Welcome back!");
+    claimDaily();
+  } catch (e) { toast(e.message, false); }
+}
+function logout() { token = null; currentUser = null; localStorage.removeItem("qadr_token"); updateNav(); showPage("home"); }
+async function claimDaily() { if (!token) return; try { const d = await api("/api/daily-login", { method: "POST" }); if (d.awarded > 0) toast(d.message); loadMe(); } catch {} }
+async function loadMe() { if (!token) return; try { currentUser = await api("/api/me"); updateNav(); } catch { logout(); } }
+
+// ── Sparkline ──
+function sparklineSVG(data, w, h, color) {
+  if (!data || data.length < 2) return `<svg class="sparkline" viewBox="0 0 ${w} ${h}"></svg>`;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const stepX = w / (data.length - 1);
+  const pts = data.map((v, i) => `${i * stepX},${h - ((v - min) / range) * (h - 4) - 2}`).join(" ");
+  return `<svg class="sparkline" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+// ── Multi-outcome bar colors ──
+const BAR_COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#06b6d4","#ec4899","#8b5cf6","#14b8a6"];
+
+// ── Load Markets ──
+async function loadMarkets() {
+  const sort = document.getElementById("sort-select").value;
+  try {
+    const markets = await api(`/api/markets?limit=100&order=${sort}`);
+    allMarkets = markets;
+    renderCategories(markets);
+    renderMarkets(markets);
+    document.getElementById("stat-markets").textContent = markets.length;
+    const totalVol = markets.reduce((s, m) => s + (m.volume24hr || 0), 0);
+    document.getElementById("stat-volume").textContent = fmt(totalVol);
+  } catch (e) {
+    document.getElementById("markets-grid").innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text3)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function renderCategories(markets) {
+  const cats = {};
+  markets.forEach(m => { const c = m.category || "general"; cats[c] = (cats[c] || 0) + 1; });
+  const el = document.getElementById("cat-tabs");
+  el.innerHTML = `<button class="cat-tab ${activeCat === '' ? 'active' : ''}" onclick="filterCat('')">All <span style="opacity:.5">${markets.length}</span></button>` +
+    Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([c, n]) =>
+      `<button class="cat-tab ${activeCat === c ? 'active' : ''}" onclick="filterCat('${c}')">${c} <span style="opacity:.5">${n}</span></button>`
+    ).join("");
+}
+
+function filterCat(cat) {
+  activeCat = cat;
+  const filtered = cat ? allMarkets.filter(m => m.category === cat) : allMarkets;
+  renderMarkets(filtered);
+  renderCategories(allMarkets);
+}
+
+function renderMarkets(markets) {
+  const grid = document.getElementById("markets-grid");
+  if (!markets.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text3)">No markets found</div>'; return; }
+
+  grid.innerHTML = markets.map(m => {
+    const prices = m.prices || [0.5, 0.5];
+    const outcomes = m.outcomes || ["Yes", "No"];
+    const isBinary = outcomes.length === 2;
+    const change = m.oneDayChange || 0;
+    const changeClass = change >= 0 ? "up" : "down";
+    const changeSign = change >= 0 ? "+" : "";
+    const sparkColor = change >= 0 ? "var(--green)" : "var(--red)";
+    const sparkData = prices.length > 0
+      ? [prices[0] - 0.05, prices[0] - 0.02, prices[0] - 0.01, prices[0], prices[0] + 0.01, prices[0] - 0.01, prices[0]]
+      : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+
+    let probHTML = "";
+    if (isBinary) {
+      const yesPct = (prices[0] * 100).toFixed(1);
+      const noPct = (prices[1] * 100).toFixed(1);
+      probHTML = `<div class="prob-bar">
+        <div class="yes-side" style="width:${yesPct}%">${yesPct}%</div>
+        <div class="no-side" style="width:${noPct}%">${noPct}%</div>
+      </div>`;
+    } else {
+      // Multi-outcome
+      probHTML = `<div class="multi-outcomes">` +
+        outcomes.map((o, i) => {
+          const p = prices[i] || 0;
+          const pctStr = (p * 100).toFixed(1);
+          const color = BAR_COLORS[i % BAR_COLORS.length];
+          return `<div class="multi-row">
+            <span class="label">${o}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${pctStr}%;background:${color}">${pctStr}%</div></div>
+          </div>`;
+        }).join("") +
+      `</div>`;
+    }
+
+    return `
+    <div class="market-card" onclick="openMarket(${m.id})">
+      <div class="card-top">
+        ${m.image ? `<img class="card-icon" src="${m.image}" alt="">` : `<div class="card-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg2)">📊</div>`}
+        <div class="card-title">${m.question}</div>
+      </div>
+      <div class="card-meta">
+        <span class="tag">${m.category || "general"}</span>
+        ${m.endDate ? `<span>Ends ${m.endDate}</span>` : ""}
+        <span>Vol: ${fmt(m.volume24hr || m.volume || 0)}</span>
+      </div>
+      ${probHTML}
+      <div class="card-footer">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="change ${changeClass}">${changeSign}${(change * 100).toFixed(1)}%</span>
+          <span>24h</span>
+        </div>
+        ${sparklineSVG(sparkData, 80, 28, sparkColor)}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Market Detail ──
+async function openMarket(id) {
+  try {
+    const m = await api("/api/markets/" + id);
+    currentMarket = m;
+    selectedOutcome = null;
+    showPage("market");
+
+    document.getElementById("md-question").textContent = m.question;
+    document.getElementById("md-meta").innerHTML = `
+      <span class="tag" style="padding:2px 8px;border-radius:4px;background:var(--bg2);font-size:11px;font-weight:500;text-transform:uppercase">${m.category || "general"}</span>
+      ${m.endDate ? `<span>Ends ${m.endDate}</span>` : ""}
+      <span>Vol: ${fmt(m.volume24hr || m.volume || 0)}</span>
+      ${m.liquidity ? `<span>Liquidity: ${fmt(m.liquidity)}</span>` : ""}
+    `;
+    document.getElementById("md-description").textContent = m.description || "";
+
+    const prices = m.prices || [0.5, 0.5];
+    const outcomes = m.outcomes || ["Yes", "No"];
+    const isBinary = outcomes.length === 2;
+
+    // Outcome buttons
+    document.getElementById("md-outcome-btns").innerHTML = outcomes.map((o, i) => {
+      const color = isBinary ? (i === 0 ? "var(--green)" : "var(--red)") : BAR_COLORS[i % BAR_COLORS.length];
+      return `<button class="outcome-btn" onclick="selectOutcome(${i}, ${prices[i]})" style="border-color:${color}20">
+        <span>${o}</span>
+        <span class="pct" style="color:${color}">${pct(prices[i])}</span>
+      </button>`;
+    }).join("");
+
+    const canTrade = token && currentUser;
+    document.getElementById("trade-btn").style.display = canTrade ? "" : "none";
+    document.getElementById("trade-login-msg").textContent = canTrade ? "" : "Log in to trade";
+
+    drawChart(m);
+    updateReturnCalc();
+  } catch (e) { toast(e.message, false); }
+}
+
+function selectOutcome(idx, price) {
+  selectedOutcome = { idx, price };
+  document.querySelectorAll(".outcome-btn").forEach((b, i) => b.classList.toggle("selected", i === idx));
+  updateReturnCalc();
+}
+
+function updateReturnCalc() {
+  const amt = parseInt(document.getElementById("trade-amount").value) || 0;
+  const el = document.getElementById("return-calc");
+  if (!selectedOutcome || amt < 10) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px">Select an outcome and enter amount</div>';
+    return;
+  }
+  const price = selectedOutcome.price;
+  const shares = amt / price;
+  const potentialReturn = shares * 1;
+  const profit = potentialReturn - amt;
+  el.innerHTML = `
+    <div class="row"><span>Price</span><span>${pct(price)}</span></div>
+    <div class="row"><span>Shares</span><span>${shares.toFixed(2)}</span></div>
+    <div class="row"><span>Potential Return</span><span style="color:var(--green)">${potentialReturn.toFixed(0)} coins</span></div>
+    <div class="row"><span>Profit</span><span style="color:var(--green)">+${profit.toFixed(0)} coins</span></div>
+  `;
+}
+
+async function placeTrade() {
+  if (!selectedOutcome) return toast("Select an outcome first", false);
+  const amt = parseInt(document.getElementById("trade-amount").value);
+  if (!amt || amt < 10) return toast("Minimum 10 coins", false);
+  try {
+    const d = await api("/api/predict", { method: "POST", body: JSON.stringify({ marketId: currentMarket.id, outcome: String(selectedOutcome.idx), coins: amt }) });
+    toast(`Trade placed! ${amt} coins at ${pct(selectedOutcome.price)}`);
+    loadMe();
+    openMarket(currentMarket.id);
+  } catch (e) { toast(e.message, false); }
+}
+
+// ── Chart ──
+function drawChart(m) {
+  const canvas = document.getElementById("priceChart");
+  const ctx = canvas.getContext("2d");
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width, h = rect.height;
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const gridColor = isDark ? "#1e2330" : "#f0f0f0";
+  const textColor = isDark ? "#6b7280" : "#9ca3af";
+
+  ctx.clearRect(0, 0, w, h);
+
+  const currentPrice = m.prices?.[0] || 0.5;
+  const change = m.oneDayChange || 0;
+  const points = [];
+  for (let i = 0; i < 30; i++) {
+    const t = i / 29;
+    const base = currentPrice - change * (1 - t);
+    const noise = (Math.sin(i * 1.3) * 0.02 + Math.cos(i * 0.7) * 0.015);
+    points.push(Math.max(0.02, Math.min(0.98, base + noise)));
+  }
+
+  // Grid
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // Area fill
+  const gradient = ctx.createLinearGradient(0, 0, 0, h);
+  gradient.addColorStop(0, isDark ? "rgba(129,140,248,0.15)" : "rgba(99,102,241,0.12)");
+  gradient.addColorStop(1, "rgba(99,102,241,0)");
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  points.forEach((p, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - p * h;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - p * h;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = isDark ? "#818cf8" : "#6366f1";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+
+  // Dot
+  const lastY = h - points[points.length - 1] * h;
+  ctx.beginPath();
+  ctx.arc(w - 4, lastY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = isDark ? "#818cf8" : "#6366f1";
+  ctx.fill();
+  ctx.strokeStyle = isDark ? "#161a22" : "#fff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = textColor;
+  ctx.font = "11px -apple-system, sans-serif";
+  ctx.fillText("0%", 4, h - 4);
+  ctx.fillText("50%", 4, h / 2 + 4);
+  ctx.fillText("100%", 4, 14);
+  ctx.fillText(pct(currentPrice), w - 38, lastY - 8);
+}
+
+// ── Leaderboard ──
+async function loadLeaderboard() {
+  try {
+    const leaders = await api("/api/leaderboard");
+    document.getElementById("stat-users").textContent = leaders.length;
+    document.getElementById("lb-body").innerHTML = leaders.slice(0, 50).map((l, i) => `
+      <tr>
+        <td class="${i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : ''}">#${i + 1}</td>
+        <td><strong>${l.display_name || l.username}</strong></td>
+        <td>${l.correct_predictions}</td>
+        <td>${l.total_predictions > 0 ? Math.round(l.correct_predictions / l.total_predictions * 100) + "%" : "-"}</td>
+        <td>${l.current_streak > 0 ? "🔥 " + l.current_streak : "-"}</td>
+        <td>${l.coins}</td>
+      </tr>`).join("");
+  } catch (e) {}
+}
+
+// ── Prizes ──
+async function loadPrizes() {
+  try {
+    const prizes = await api("/api/prizes");
+    document.getElementById("prizes-grid").innerHTML = prizes.map(p => `
+      <div class="prize-card">
+        <div class="prize-icon">${p.icon}</div>
+        <h4>${p.label}</h4>
+        <div class="prize-cost">🪙 ${p.coinsCost.toLocaleString()}</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:12px;width:100%" onclick="redeem('${p.id}')">Redeem</button>
+      </div>`).join("");
+  } catch (e) {}
+}
+async function redeem(id) {
+  if (!token) return showAuth("signup");
+  try { const d = await api("/api/redeem", { method: "POST", body: JSON.stringify({ prizeId: id }) }); toast(d.message); loadMe(); }
+  catch (e) { toast(e.message, false); }
+}
+
+// ── Profile ──
+async function loadProfile() {
+  if (!token) return showAuth("signin");
+  try {
+    const u = await api("/api/me");
+    document.getElementById("profile-content").innerHTML = `
+      <div class="profile-stats">
+        <div class="stat-card"><div class="val">#${u.rank}</div><div class="lbl">Rank</div></div>
+        <div class="stat-card"><div class="val">${u.total_predictions}</div><div class="lbl">Predictions</div></div>
+        <div class="stat-card"><div class="val">${u.correct_predictions}</div><div class="lbl">Correct</div></div>
+        <div class="stat-card"><div class="val">${u.total_predictions > 0 ? Math.round(u.correct_predictions / u.total_predictions * 100) + "%" : "-"}</div><div class="lbl">Accuracy</div></div>
+        <div class="stat-card"><div class="val">${u.current_streak > 0 ? "🔥 " + u.current_streak : "-"}</div><div class="lbl">Streak</div></div>
+        <div class="stat-card"><div class="val" style="color:var(--accent)">${u.coins}</div><div class="lbl">Coins</div></div>
+      </div>
+      <h3 style="margin-bottom:12px;font-size:16px;font-weight:700">Referral Code</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:24px">
+        <code style="padding:8px 16px;background:var(--bg2);border-radius:var(--radius);font-size:16px;font-weight:700;letter-spacing:1px">${u.referral_code}</code>
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${u.referral_code}');toast('Copied!')">Copy</button>
+      </div>
+      <h3 style="margin-bottom:12px;font-size:16px;font-weight:700">Recent Activity</h3>
+      ${(u.recentTransactions || []).map(t => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${t.description}</span>
+          <span style="color:${t.amount > 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${t.amount > 0 ? '+' : ''}${t.amount}</span>
+        </div>`).join("") || '<p style="color:var(--text3)">No activity yet</p>'}
+    `;
+  } catch (e) { toast(e.message, false); }
+}
+
+// ── Search ──
+function doSearch() {
+  const q = document.getElementById("search-input").value.trim().toLowerCase();
+  if (!q) { renderMarkets(allMarkets); return; }
+  renderMarkets(allMarkets.filter(m => m.question.toLowerCase().includes(q) || (m.description || "").toLowerCase().includes(q)));
+}
+
+// ── Init ──
+initTheme();
+loadMe().then(() => { updateNav(); loadMarkets(); });
+</script>
+</body>
+</html>
