@@ -46,26 +46,29 @@ function awardCoins(d, userId, amount, type, desc, refId) {
   return bal;
 }
 
-// ── Polymarket API
+// ── Polymarket API (with timeout)
 function fetchPoly(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, res => {
+    const req = https.get(url, res => {
       let data = "";
       res.on("data", c => data += c);
       res.on("end", () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
-    }).on("error", reject);
+    });
+    req.on("error", reject);
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Timeout")); });
   });
 }
 
 // ── Sync markets from Polymarket → our DB
 async function syncMarketsFromPolymarket() {
-  console.log("[QADR] Syncing markets from Polymarket...");
+  console.log("[QADR] Starting market sync...");
   const d = db();
+  const startTime = Date.now();
 
   try {
-    // Fetch events from Polymarket
-    const events = await fetchPoly(`${POLY_API}/events?active=true&closed=false&limit=50&order=volume24hr&ascending=false`);
-    console.log(`[QADR] Got ${events.length} events from Polymarket`);
+    // ── PASS 1: Multi-outcome events ──
+    const events = await fetchPoly(`${POLY_API}/events?active=true&closed=false&limit=100&order=volume24hr&ascending=false`);
+    console.log(`[QADR] Got ${events.length} events (${Date.now()-startTime}ms)`);
 
     let synced = 0;
 
@@ -73,7 +76,44 @@ async function syncMarketsFromPolymarket() {
       const markets = evt.markets || [];
       if (markets.length === 0) continue;
 
-      // Collect unique candidates
+      const firstMarket = markets[0];
+      const firstOutcomes = typeof firstMarket.outcomes === "string" ? JSON.parse(firstMarket.outcomes) : (firstMarket.outcomes || ["Yes","No"]);
+      const allBinary = markets.every(m => {
+        const o = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
+        return o.length === 2;
+      });
+
+      if (allBinary && firstOutcomes.length === 2 && markets.length > 3) {
+        // Check if all markets are the SAME yes/no question with different parameters
+        // (e.g. "Iran closes its airspace by May 8?", "Iran closes its airspace by May 15?")
+        // Pattern: same prefix, different date/number at the end
+        const baseQuestions = markets.map(m => {
+          const q = m.question;
+          // Remove trailing date/number info
+          return q.replace(/\b(by|on|before|after|until)\s+.*$/, '').trim().toLowerCase();
+        });
+        const uniqueBases = new Set(baseQuestions);
+
+        if (uniqueBases.size <= 2) {
+          // Repeated binary: same question, different dates/thresholds
+          const sortedPrices = markets.map(m => {
+            const p = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
+            return parseFloat(p[0]) || 0.5;
+          }).sort((a, b) => a - b);
+          const yesPrice = sortedPrices[Math.floor(sortedPrices.length / 2)] || 0.5;
+
+          const category = detectCategory(evt.slug || "");
+          const marketId = "evt-" + slugify(evt.slug || "");
+          const now = new Date().toISOString();
+          const vol24 = parseFloat(evt.volume24hr || 0);
+          const vol = parseFloat(evt.volume || 0);
+          upsertMarket(d, marketId, evt.title || "", evt.description || "", category, "binary", ["Yes", "No"], [yesPrice, 1 - yesPrice], vol, vol24, now);
+          synced++;
+          continue;
+        }
+      }
+
+      // Multi-outcome: collect unique candidates
       const candidateSet = {};
       for (const m of markets) {
         const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
@@ -92,80 +132,115 @@ async function syncMarketsFromPolymarket() {
             const price = parseFloat(prices[i]) || 0;
             if (!candidateSet[name]) candidateSet[name] = { name, price };
           }
-        } else {
-          const name = m.question.length > 80 ? m.question.slice(0,80)+"..." : m.question;
-          candidateSet[name] = { name, price: parseFloat(prices[0]) || 0 };
-          candidateSet["_binary"] = true;
-          candidateSet._q = m.question;
         }
       }
 
-      const candidates = Object.values(candidateSet).filter(c => c.name !== "_binary" && c.name !== "_q");
-      if (candidates.length < 2) continue;
-
-      candidates.sort((a, b) => b.price - a.price);
-
-      const outcomes = candidates.map(c => c.name);
-      const prices = candidates.map(c => c.price);
-
-      // Category detection
-      const slug = evt.slug || "";
-      let category = "general";
-      if (slug.match(/election|president|political|senate|congress|governor/i)) category = "politics";
-      else if (slug.match(/cup|sports|nba|nfl|soccer|football|tennis|baseball|hockey|ufc|f1|esports/i)) category = "sports";
-      else if (slug.match(/bitcoin|crypto|ethereum|btc/i)) category = "crypto";
-      else if (slug.match(/fed|interest|economy|gdp|inflation|recession|oil|crude|wti/i)) category = "economy";
-      else if (slug.match(/iran|israel|geopolitics|war|peace|regime|strait|hormuz/i)) category = "geopolitics";
-      else if (slug.match(/tech|ai|apple|google|microsoft|openai|spacex|tesla|elon|musk|ipo/i)) category = "tech";
-      else if (slug.match(/science|climate|weather|space|nasa/i)) category = "science";
-
-      const marketId = "evt-" + slug;
-      const now = new Date().toISOString();
-      const vol24 = parseFloat(evt.volume24hr || 0);
-      const vol = parseFloat(evt.volume || 0);
-
-      // Upsert market
-      const existing = d.prepare("SELECT id FROM markets WHERE id = ?").get(marketId);
-      if (existing) {
-        d.prepare(`UPDATE markets SET question=?, description=?, category=?, options=?, status=?, updated_at=? WHERE id=?`)
-          .run(evt.title || "", evt.description || "", category, JSON.stringify(outcomes), "active", now, marketId);
-      } else {
-        d.prepare(`INSERT INTO markets (id,question,description,category,resolution_type,options,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
-          .run(marketId, evt.title || "", evt.description || "", category, "multiple", JSON.stringify(outcomes), "active", now, now);
+      const candidates = Object.values(candidateSet);
+      if (candidates.length >= 2) {
+        candidates.sort((a, b) => b.price - a.price);
+        const outcomes = candidates.map(c => c.name);
+        const pricesArr = candidates.map(c => c.price);
+        const category = detectCategory(evt.slug || "");
+        const marketId = "evt-" + slugify(evt.slug || "");
+        const now = new Date().toISOString();
+        const vol24 = parseFloat(evt.volume24hr || 0);
+        const vol = parseFloat(evt.volume || 0);
+        upsertMarket(d, marketId, evt.title || "", evt.description || "", category, "multiple", outcomes, pricesArr, vol, vol24, now);
+        synced++;
       }
-
-      // Upsert price history for each outcome
-      for (let i = 0; i < outcomes.length; i++) {
-        const optId = marketId + "-opt-" + i;
-        const price = prices[i];
-        const existingOpt = d.prepare("SELECT id FROM market_options WHERE id = ?").get(optId);
-        if (existingOpt) {
-          d.prepare("UPDATE market_options SET current_price=?, updated_at=? WHERE id=?").run(price, now, optId);
-        } else {
-          d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
-            .run(optId, marketId, outcomes[i], price, now, now);
-        }
-
-        // Record price point for chart history
-        d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
-          .run(uuid(), marketId, i, price, now);
-      }
-
-      // Update volume (stored as points, not $)
-      // Convert $ volume to points: $1 = 10 points
-      const pointsVolume = Math.round(vol * 10);
-      const pointsVol24 = Math.round(vol24 * 10);
-      d.prepare("UPDATE markets SET total_volume=?, volume24hr=? WHERE id=?").run(pointsVolume, pointsVol24, marketId);
-
-      synced++;
     }
 
-    console.log(`[QADR] Synced ${synced} markets`);
+    // ── PASS 2: Individual binary markets from /markets endpoint ──
+    // These are standalone binary markets NOT part of multi-outcome events
+    console.log(`[QADR] Fetching individual markets (${Date.now()-startTime}ms)...`);
+    let individualMarkets = [];
+    try {
+      individualMarkets = await fetchPoly(`${POLY_API}/markets?active=true&closed=false&limit=100&order=volume24hr&ascending=false`);
+    } catch(e) {
+      console.log(`[QADR] Individual markets fetch failed: ${e.message}`);
+    }
+    console.log(`[QADR] Got ${individualMarkets.length} individual markets (${Date.now()-startTime}ms)`);
+
+    let binarySynced = 0;
+
+    for (const m of individualMarkets) {
+      const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
+      const pricesArr = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
+
+      if (outcomes.length !== 2) continue;
+
+      const p0 = parseFloat(pricesArr[0]) || 0;
+      if (p0 <= 0.001 || p0 >= 0.999) continue;
+
+      // Skip markets that belong to events (already handled in Pass 1)
+      const evts = m.events || [];
+      if (evts.length > 0) continue;
+
+      const mid = "mkt-" + String(m.id);
+
+      const slug = m.slug || String(m.id);
+      const category = detectCategory(slug);
+      const now = new Date().toISOString();
+      const vol24 = parseFloat(m.volume24hr || 0);
+      const vol = parseFloat(m.volume || 0);
+
+      upsertMarket(d, mid, m.question, m.description || "", category, "binary", outcomes, [p0, 1-p0], vol, vol24, now);
+      binarySynced++;
+    }
+
+    console.log(`[QADR] Synced ${synced} multi + ${binarySynced} binary = ${synced+binarySynced} total (${Date.now()-startTime}ms)`);
   } catch (e) {
     console.error("[QADR] Sync error:", e.message);
   } finally {
     d.close();
   }
+}
+
+function detectCategory(slug) {
+  if (!slug) return "general";
+  if (slug.match(/election|president|political|senate|congress|governor|mayor/i)) return "politics";
+  if (slug.match(/cup|sports|nba|nfl|soccer|football|tennis|baseball|hockey|ufc|f1|esports|mlb|nhl/i)) return "sports";
+  if (slug.match(/bitcoin|crypto|ethereum|btc/i)) return "crypto";
+  if (slug.match(/fed|interest|economy|gdp|inflation|recession|oil|crude|wti/i)) return "economy";
+  if (slug.match(/iran|israel|geopolitics|war|peace|regime|strait|hormuz/i)) return "geopolitics";
+  if (slug.match(/tech|ai|apple|google|microsoft|openai|spacex|tesla|elon|musk|ipo/i)) return "tech";
+  if (slug.match(/science|climate|weather|space|nasa/i)) return "science";
+  return "general";
+}
+
+function slugify(s) {
+  return s.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+}
+
+function upsertMarket(d, marketId, question, description, category, resolutionType, outcomes, pricesArr, vol, vol24, now) {
+  const existing = d.prepare("SELECT id FROM markets WHERE id = ?").get(marketId);
+  if (existing) {
+    d.prepare(`UPDATE markets SET question=?, description=?, category=?, resolution_type=?, outcomes=?, status=?, updated_at=? WHERE id=?`)
+      .run(question, description, category, resolutionType, JSON.stringify(outcomes), "active", now, marketId);
+  } else {
+    d.prepare(`INSERT INTO markets (id,question,description,category,resolution_type,outcomes,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(marketId, question, description, category, resolutionType, JSON.stringify(outcomes), "active", now, now);
+  }
+
+  // Upsert options and price history
+  for (let i = 0; i < outcomes.length; i++) {
+    const optId = marketId + "-opt-" + i;
+    const price = pricesArr[i] || 0.5;
+    const existingOpt = d.prepare("SELECT id FROM market_options WHERE id = ?").get(optId);
+    if (existingOpt) {
+      d.prepare("UPDATE market_options SET current_price=?, updated_at=? WHERE id=?").run(price, now, optId);
+    } else {
+      d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
+        .run(optId, marketId, outcomes[i], price, now, now);
+    }
+    // Record price history (throttle: only keep last 100 per outcome)
+    d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
+      .run(uuid(), marketId, i, price, now);
+  }
+
+  // Volume in points ($1 = 10 pts)
+  d.prepare("UPDATE markets SET total_volume=?, volume24hr=? WHERE id=?")
+    .run(Math.round(vol * 10), Math.round(vol24 * 10), marketId);
 }
 
 // ── Ensure DB schema exists
@@ -203,7 +278,7 @@ function ensureSchema() {
         creator_id      TEXT REFERENCES users(id),
         resolution_type TEXT DEFAULT 'binary',
         resolution_url  TEXT DEFAULT '',
-        options         TEXT DEFAULT '[]',
+        outcomes       TEXT DEFAULT '[]',
         status          TEXT DEFAULT 'active',
         outcome         TEXT DEFAULT '',
         yes_pool        INTEGER DEFAULT 0,
@@ -293,6 +368,14 @@ function ensureSchema() {
       CREATE INDEX IF NOT EXISTS idx_market_options_market ON market_options(market_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_market ON price_history(market_id);
     `);
+
+    // Migration: rename old 'options' column to 'outcomes' (SQLite 3.25+)
+    try {
+      d.exec("ALTER TABLE markets RENAME COLUMN options TO outcomes");
+      console.log("[QADR] Migrated: options → outcomes");
+    } catch(e) {
+      // Column already renamed or doesn't exist — fine
+    }
   } finally {
     d.close();
   }
@@ -389,14 +472,14 @@ app.get("/api/markets", (req, res) => {
     `).all(...params, limit, offset);
 
     const result = markets.map(m => {
-      const options = JSON.parse(m.options || "[]");
+      const outcomes = JSON.parse(m.outcomes || "[]");
       const prices = (m.option_prices || "").split(",").map(p => parseFloat(p) || 0);
       return {
         id: m.id,
         question: m.question,
         description: m.description,
         category: m.category,
-        options,
+        outcomes,
         prices,
         volume24hr: m.volume24hr || 0,
         totalVolume: m.total_volume || 0,
@@ -429,7 +512,7 @@ app.get("/api/markets/:id", (req, res) => {
       question: m.question,
       description: m.description,
       category: m.category,
-      options: outcomeNames,
+      outcomes: outcomeNames,
       prices,
       volume24hr: m.volume24hr || 0,
       totalVolume: m.total_volume || 0,
@@ -482,11 +565,11 @@ app.post("/api/predict", auth, (req, res) => {
     const u = d.prepare("SELECT coins FROM users WHERE id=?").get(req.user.userId);
     if (u.coins < coins) return res.status(400).json({ error: `Need ${coins} coins, have ${u.coins}` });
 
-    const options = JSON.parse(market.options || "[]");
+    const outcomes = JSON.parse(market.outcomes || "[]");
     const outcomeIdx = parseInt(outcome);
-    if (outcomeIdx < 0 || outcomeIdx >= options.length) return res.status(400).json({ error: "Invalid outcome" });
+    if (outcomeIdx < 0 || outcomeIdx >= outcomes.length) return res.status(400).json({ error: "Invalid outcome" });
 
-    const optRow = d.prepare("SELECT * FROM market_options WHERE market_id=? AND outcome_name=?").get(marketId, options[outcomeIdx]);
+    const optRow = d.prepare("SELECT * FROM market_options WHERE market_id=? AND outcome_name=?").get(marketId, outcomes[outcomeIdx]);
     const price = optRow ? optRow.current_price : 0.5;
 
     const id = uuid();
@@ -496,9 +579,9 @@ app.post("/api/predict", auth, (req, res) => {
     // Update pools
     d.prepare("UPDATE markets SET total_volume = total_volume + ? WHERE id=?").run(coins, marketId);
 
-    awardCoins(d, req.user.userId, -coins, "prediction", `Predicted "${options[outcomeIdx]}" on "${market.question.slice(0,40)}"`, id);
+    awardCoins(d, req.user.userId, -coins, "prediction", `Predicted "${outcomes[outcomeIdx]}" on "${market.question.slice(0,40)}"`, id);
 
-    res.json({ id, coins: u.coins - coins, outcome: options[outcomeIdx], price });
+    res.json({ id, coins: u.coins - coins, outcome: outcomes[outcomeIdx], price });
   } finally { d.close(); }
 });
 

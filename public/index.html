@@ -745,7 +745,7 @@ async function placeTrade() {
   } catch (e) { toast(e.message, false); }
 }
 
-// ── Interactive Multi-Line Chart ──
+// ── Interactive Multi-Line Chart with Hover Isolation ──
 function drawChart(m) {
   const canvas = document.getElementById("priceChart");
   const ctx = canvas.getContext("2d");
@@ -759,13 +759,11 @@ function drawChart(m) {
   const gridColor = isDark ? "#1e2330" : "#f0f0f0";
   const textColor = isDark ? "#6b7280" : "#9ca3af";
 
-  ctx.clearRect(0, 0, w, h);
-
   const options = m.outcomes || [];
   const prices = m.prices || [];
   const numLines = options.length;
 
-  // Generate synthetic history if no real data
+  // Generate synthetic history
   const historyData = {};
   for (let i = 0; i < numLines; i++) {
     const currentPrice = prices[i] || 0.5;
@@ -779,7 +777,7 @@ function drawChart(m) {
     historyData[i] = points;
   }
 
-  // Override with real history if available
+  // Override with real history
   if (priceHistory && Object.keys(priceHistory).length > 0) {
     for (const [idx, points] of Object.entries(priceHistory)) {
       if (points && points.length > 1) {
@@ -788,68 +786,98 @@ function drawChart(m) {
     }
   }
 
-  // Draw grid
-  ctx.strokeStyle = gridColor;
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i <= 4; i++) {
-    const y = (h / 4) * i;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-  }
-
-  // Draw each line
-  const linePositions = []; // Store for hover detection
+  // Build line data
+  const lineData = [];
   for (let i = 0; i < numLines; i++) {
     if (hiddenLines.has(i)) continue;
     const data = historyData[i];
     if (!data || data.length < 2) continue;
     const color = BAR_COLORS[i % BAR_COLORS.length];
-
     const pts = data.map((p, t) => ({
       x: (t / (data.length - 1)) * w,
       y: h - p * h,
       price: p
     }));
-
-    // Area fill
-    const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, color + "20");
-    gradient.addColorStop(1, color + "00");
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-    pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-    ctx.lineTo(w, h);
-    ctx.closePath();
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    // Line
-    ctx.beginPath();
-    pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.stroke();
-
-    // Dot at end
-    const last = pts[pts.length - 1];
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = isDark ? "#161a22" : "#fff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    linePositions.push({ idx: i, name: options[i], color, pts });
+    lineData.push({ idx: i, name: options[i], color, pts });
   }
 
-  // Labels
-  ctx.fillStyle = textColor;
-  ctx.font = "11px -apple-system, sans-serif";
-  ctx.fillText("0%", 4, h - 4);
-  ctx.fillText("50%", 4, h / 2 + 4);
-  ctx.fillText("100%", 4, 14);
+  // ── Draw function (called on every hover update) ──
+  function render(hoveredIdx, hoverX) {
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 4; i++) {
+      const y = (h / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Draw each line
+    for (const line of lineData) {
+      const isHovered = hoveredIdx === line.idx;
+      const isDimmed = hoveredIdx !== null && !isHovered;
+      const alpha = isDimmed ? 0.12 : 1.0;
+      const lineW = isHovered ? 3 : 2;
+
+      // Area fill
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, line.color + (isDimmed ? "08" : "20"));
+      gradient.addColorStop(1, line.color + "00");
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      line.pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+
+      // Line
+      ctx.beginPath();
+      line.pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.strokeStyle = line.color;
+      ctx.lineWidth = lineW;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+
+      // Dot at end
+      const last = line.pts[line.pts.length - 1];
+      ctx.beginPath();
+      ctx.arc(last.x, last.y, isHovered ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = line.color;
+      ctx.fill();
+      ctx.strokeStyle = isDark ? "#161a22" : "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.globalAlpha = 1.0;
+    }
+
+    // Vertical cursor line
+    if (hoverX !== null) {
+      ctx.beginPath();
+      ctx.moveTo(hoverX, 0);
+      ctx.lineTo(hoverX, h);
+      ctx.strokeStyle = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Labels
+    ctx.fillStyle = textColor;
+    ctx.font = "11px -apple-system, sans-serif";
+    ctx.globalAlpha = 1.0;
+    ctx.fillText("0%", 4, h - 4);
+    ctx.fillText("50%", 4, h / 2 + 4);
+    ctx.fillText("100%", 4, 14);
+  }
+
+  // Initial render
+  render(null, null);
 
   // Build legend
   const legendEl = document.getElementById("chart-legend");
@@ -863,7 +891,7 @@ function drawChart(m) {
     </div>`;
   }).join("");
 
-  // Hover tooltip
+  // Hover interaction
   const tooltip = document.getElementById("chart-tooltip");
   canvas.onmousemove = function(e) {
     const rect2 = canvas.getBoundingClientRect();
@@ -875,7 +903,7 @@ function drawChart(m) {
     let bestPt = null;
     let bestLine = null;
 
-    for (const line of linePositions) {
+    for (const line of lineData) {
       for (const pt of line.pts) {
         const dist = Math.abs(pt.x - mx);
         if (dist < bestDist) {
@@ -886,26 +914,37 @@ function drawChart(m) {
       }
     }
 
-    if (bestPt && bestDist < 20) {
-      // Show tooltip
-      let html = `<div class="tt-title">${bestLine.name}</div>`;
-      // Show all lines at this x position
-      for (const line of linePositions) {
-        const ptIdx = line.pts.indexOf(bestPt);
-        if (ptIdx >= 0) {
-          html += `<div class="tt-row"><span class="tt-dot" style="background:${line.color}"></span><span>${line.name}</span><span style="font-weight:700">${pct(line.pts[ptIdx].price)}</span></div>`;
+    if (bestPt && bestDist < 30) {
+      // Re-render with hover isolation
+      render(bestLine.idx, bestPt.x);
+
+      // Build tooltip — show all lines at this x position
+      let html = `<div class="tt-title" style="color:${bestLine.color}">${bestLine.name} — ${pct(bestPt.price)}</div>`;
+      // Sort by price descending
+      const sorted = [...lineData].sort((a, b) => {
+        const aPt = a.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
+        const bPt = b.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
+        return (bPt ? bPt.price : 0) - (aPt ? aPt.price : 0);
+      });
+      for (const line of sorted) {
+        const pt = line.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
+        if (pt) {
+          const isHl = line.idx === bestLine.idx;
+          html += `<div class="tt-row" style="${isHl ? 'font-weight:700' : 'opacity:.6'}"><span class="tt-dot" style="background:${line.color}"></span><span>${line.name}</span><span style="font-weight:700">${pct(pt.price)}</span></div>`;
         }
       }
       tooltip.innerHTML = html;
       tooltip.style.display = "block";
-      tooltip.style.left = Math.min(bestPt.x + 10, w - 150) + "px";
-      tooltip.style.top = Math.max(bestPt.y - 40, 10) + "px";
+      tooltip.style.left = Math.min(bestPt.x + 12, w - 160) + "px";
+      tooltip.style.top = Math.max(bestPt.y - 50, 10) + "px";
     } else {
+      render(null, null);
       tooltip.style.display = "none";
     }
   };
 
   canvas.onmouseleave = function() {
+    render(null, null);
     tooltip.style.display = "none";
   };
 }
