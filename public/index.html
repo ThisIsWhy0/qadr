@@ -565,16 +565,22 @@ function renderMarkets(markets) {
 
     let probHTML = "";
     if (isBinary) {
+      // Binary: show YES/NO style with actual outcome names
+      const yesName = outcomes[0] || "Yes";
+      const noName = outcomes[1] || "No";
       const yesPct = (prices[0] * 100).toFixed(1);
       const noPct = (prices[1] * 100).toFixed(1);
       probHTML = `<div class="prob-bar">
-        <div class="yes-side" style="width:${yesPct}%">${yesPct}%</div>
-        <div class="no-side" style="width:${noPct}%">${noPct}%</div>
+        <div class="yes-side" style="width:${yesPct}%">${yesName} ${yesPct}%</div>
+        <div class="no-side" style="width:${noPct}%">${noPct}% ${noName}</div>
       </div>`;
     } else {
-      // Multi-outcome
+      // Multi-outcome: show top 4 + "More..." link
+      const showCount = 4;
+      const visible = outcomes.slice(0, showCount);
+      const hasMore = outcomes.length > showCount;
       probHTML = `<div class="multi-outcomes">` +
-        outcomes.map((o, i) => {
+        visible.map((o, i) => {
           const p = prices[i] || 0;
           const pctStr = (p * 100).toFixed(1);
           const color = BAR_COLORS[i % BAR_COLORS.length];
@@ -583,11 +589,15 @@ function renderMarkets(markets) {
             <div class="bar-track"><div class="bar-fill" style="width:${pctStr}%;background:${color}">${pctStr}%</div></div>
           </div>`;
         }).join("") +
+        (hasMore ? `<div class="multi-row" style="cursor:pointer" onclick="event.stopPropagation();openMarket('${m.id}')">
+          <span class="label" style="color:var(--accent);font-weight:600">+${outcomes.length - showCount} more...</span>
+          <div class="bar-track" style="background:transparent"></div>
+        </div>` : "") +
       `</div>`;
     }
 
     return `
-    <div class="market-card" onclick="openMarket(${m.id})">
+    <div class="market-card" onclick="openMarket('${m.id}')">
       <div class="card-top">
         ${m.image ? `<img class="card-icon" src="${m.image}" alt="">` : `<div class="card-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg2)">📊</div>`}
         <div class="card-title">${m.question}</div>
@@ -623,6 +633,7 @@ async function openMarket(id) {
       ${m.endDate ? `<span>Ends ${m.endDate}</span>` : ""}
       <span>Vol: ${fmt(m.volume24hr || m.volume || 0)}</span>
       ${m.liquidity ? `<span>Liquidity: ${fmt(m.liquidity)}</span>` : ""}
+      ${m.isGrouped ? `<span style="color:var(--accent)">${m.groupSize || m.outcomes.length} outcomes</span>` : ""}
     `;
     document.getElementById("md-description").textContent = m.description || "";
 
@@ -630,12 +641,13 @@ async function openMarket(id) {
     const outcomes = m.outcomes || ["Yes", "No"];
     const isBinary = outcomes.length === 2;
 
-    // Outcome buttons
+    // Outcome buttons — show ALL outcomes in detail view
     document.getElementById("md-outcome-btns").innerHTML = outcomes.map((o, i) => {
       const color = isBinary ? (i === 0 ? "var(--green)" : "var(--red)") : BAR_COLORS[i % BAR_COLORS.length];
+      const pctStr = (parseFloat(prices[i]) * 100).toFixed(1);
       return `<button class="outcome-btn" onclick="selectOutcome(${i}, ${prices[i]})" style="border-color:${color}20">
         <span>${o}</span>
-        <span class="pct" style="color:${color}">${pct(prices[i])}</span>
+        <span class="pct" style="color:${color}">${pctStr}%</span>
       </button>`;
     }).join("");
 

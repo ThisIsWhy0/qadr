@@ -54,98 +54,98 @@ function fetchPoly(url) {
   });
 }
 
-// Get transformed Polymarket data — includes multi-outcome markets
+// Get transformed Polymarket data — fetches from EVENTS endpoint for proper multi-outcome support
 async function getPolyMarkets(query = {}) {
   const params = new URLSearchParams({
     active: "true",
     closed: "false",
-    limit: query.limit || "80",
+    limit: "50",
+    offset: query.offset || "0",
     order: query.order || "volume24hr",
     ascending: "false",
   });
-  if (query.q) params.set("q", query.q);
 
-  const raw = await fetchPoly(`${POLY_API}/markets?${params}`);
+  // Fetch from events endpoint — each event has multiple markets (one per outcome)
+  const events = await fetchPoly(`${POLY_API}/events?${params}`);
+  console.log(`[QADR] Got ${events.length} events from Polymarket`);
 
-  // Group markets by event slug
-  const eventMap = {};
-  const standalone = [];
+  const results = [];
 
-  for (const m of raw) {
-    const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
-    const prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
-    const events = m.events || [];
+  for (const evt of events) {
+    const markets = evt.markets || [];
+    if (markets.length === 0) continue;
 
-    if (outcomes.length > 2) {
-      // True multi-outcome market — show directly
-      standalone.push(transformMarket(m, outcomes, prices));
-    } else if (events.length > 0) {
-      // Binary market belonging to an event — group it
-      const slug = events[0].slug || "unknown";
-      if (!eventMap[slug]) {
-        eventMap[slug] = {
-          id: "event-" + slug,
-          question: events[0].title || m.question,
-          description: events[0].description || "",
-          category: slug.split("-")[0] || "general",
-          image: events[0].image || m.image || "",
-          slug: slug,
-          markets: [],
-          volume24hr: 0,
-          volume: 0,
-        };
-      }
-      eventMap[slug].markets.push({
-        id: m.id,
-        question: m.question,
-        outcomes,
-        prices,
-        volume24hr: parseFloat(m.volume24hr || 0),
-      });
-      eventMap[slug].volume24hr += parseFloat(m.volume24hr || 0);
-      eventMap[slug].volume += parseFloat(m.volume || 0);
-    } else {
-      standalone.push(transformMarket(m, outcomes, prices));
-    }
-  }
-
-  // Convert event groups to multi-outcome cards
-  const grouped = Object.values(eventMap).map(evt => {
-    // Collect unique candidate names from market questions
+    // Collect unique candidates from market questions/outcomes
     const candidateSet = {};
-    for (const m of evt.markets) {
-      // Extract candidate name from "Will X win...?" pattern
-      const match = m.question.match(/Will (.+?) win/i) || m.question.match(/^(.*?) vs\./i);
-      const name = match ? match[1].trim() : m.question;
-      if (!candidateSet[name]) {
-        candidateSet[name] = { name, price: parseFloat(m.prices[0]) || 0, volume: m.volume24hr };
+
+    for (const m of markets) {
+      const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
+      const prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
+
+      if (outcomes.length === 2 && markets.length > 1) {
+        // Binary market in a multi-market event — extract candidate name
+        const match = m.question.match(/Will (.+?) win/i) || m.question.match(/^(.*?) vs\./i) || m.question.match(/^Will (.+?)\?/i);
+        const name = match ? match[1].trim() : m.question;
+        const price = parseFloat(prices[0]) || 0;
+        if (!candidateSet[name] || price > candidateSet[name].price) {
+          candidateSet[name] = { name, price };
+        }
+      } else if (outcomes.length > 2) {
+        // True multi-outcome market
+        for (let i = 0; i < outcomes.length; i++) {
+          const name = outcomes[i];
+          const price = parseFloat(prices[i]) || 0;
+          if (!candidateSet[name]) candidateSet[name] = { name, price };
+        }
+      } else {
+        // Standalone binary — show as YES/NO
+        const name = m.question.length > 80 ? m.question.slice(0,80)+"..." : m.question;
+        candidateSet[name] = { name, price: parseFloat(prices[0]) || 0 };
+        candidateSet["_binary"] = true;
+        candidateSet._q = m.question;
       }
     }
 
-    const outcomes = Object.keys(candidateSet);
-    const prices = outcomes.map(o => String(candidateSet[o].price));
+    // Skip if only one candidate (no real multi-outcome)
+    const candidates = Object.values(candidateSet).filter(c => c.name !== "_binary" && c.name !== "_q");
+    if (candidates.length <= 1) continue;
 
     // Sort by price descending
-    const sorted = outcomes.map((o, i) => ({ name: o, price: parseFloat(prices[i]) }))
-      .sort((a, b) => b.price - a.price);
+    candidates.sort((a, b) => b.price - a.price);
 
-    return {
-      id: evt.id,
-      question: evt.question,
-      description: evt.description,
-      category: evt.category,
-      image: evt.image,
-      outcomes: sorted.map(s => s.name),
-      prices: sorted.map(s => String(s.price)),
-      volume24hr: evt.volume24hr,
-      volume: evt.volume,
+    const outcomes = candidates.map(c => c.name);
+    const prices = candidates.map(c => String(c.price));
+
+    // Determine category from slug
+    const slug = evt.slug || "";
+    let category = "general";
+    if (slug.match(/election|president|political|senate|congress|governor/i)) category = "politics";
+    else if (slug.match(/cup|sports|nba|nfl|soccer|football|tennis|baseball|hockey/i)) category = "sports";
+    else if (slug.match(/bitcoin|crypto|ethereum|btc/i)) category = "crypto";
+    else if (slug.match(/fed|interest|economy|gdp|inflation|recession/i)) category = "economy";
+    else if (slug.match(/iran|israel|geopolitics|war|peace/i)) category = "geopolitics";
+    else if (slug.match(/tech|ai|apple|google|microsoft|openai/i)) category = "tech";
+    else if (slug.match(/science|climate|weather|space|nasa/i)) category = "science";
+
+    results.push({
+      id: "event-" + slug,
+      question: evt.title || markets[0].question,
+      description: evt.description || "",
+      category,
+      categorySlug: slug.split("-")[0] || "general",
+      image: evt.image || markets[0].image || "",
+      outcomes,
+      prices,
+      volume24hr: parseFloat(evt.volume24hr || 0),
+      volume: parseFloat(evt.volume || 0),
       isGrouped: true,
-      groupSize: evt.markets.length,
-    };
-  });
+      groupSize: markets.length,
+      slug,
+    });
+  }
 
-  // Combine: multi-outcome grouped + standalone binary
-  return [...grouped, ...standalone];
+  console.log(`[QADR] Returning ${results.length} transformed markets`);
+  return results.slice(0, query.limit || 50);
 }
 
 function transformMarket(m, outcomes, prices) {
@@ -235,7 +235,7 @@ app.get("/api/markets", async (req, res) => {
   try {
     console.log("[QADR] Fetching Polymarket data...");
     const markets = await getPolyMarkets({
-      limit: req.query.limit || 50,
+      limit: req.query.limit || 100,
       q: req.query.q || "",
       order: req.query.order || "volume24hr",
     });
