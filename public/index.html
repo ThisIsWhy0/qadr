@@ -9,7 +9,6 @@
    QADR — Polymarket-inspired · Light + Dark mode
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Light theme (default) ── */
 :root,[data-theme="light"]{
   --bg:#ffffff;--bg2:#f7f8fa;--bg3:#eef0f3;
   --card:#ffffff;--card-hover:#fafbfc;
@@ -26,7 +25,6 @@
   --chart-grid:#f0f0f0;
 }
 
-/* ── Dark theme ── */
 [data-theme="dark"]{
   --bg:#0b0d11;--bg2:#13161c;--bg3:#1a1e27;
   --card:#161a22;--card-hover:#1c2029;
@@ -51,7 +49,6 @@ a:hover{text-decoration:underline}
 button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:inherit;color:var(--text)}
 input,select,textarea{font-family:inherit;font-size:inherit;color:var(--text);background:var(--bg)}
 
-/* ── Layout ── */
 .container{max-width:1200px;margin:0 auto;padding:0 24px}
 @media(max-width:768px){.container{padding:0 16px}}
 
@@ -69,7 +66,6 @@ nav .container{display:flex;align-items:center;justify-content:space-between;wid
 .search-box input{border:none;background:none;outline:none;width:100%;font-size:13px;color:var(--text)}
 .search-box svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
 
-/* Theme toggle */
 .theme-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);transition:all .2s;color:var(--text2)}
 .theme-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
 .theme-btn svg{width:16px;height:16px}
@@ -131,7 +127,7 @@ section{padding:32px 0}
 /* ── Multi-outcome probabilities ── */
 .multi-outcomes{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .multi-row{display:flex;align-items:center;gap:10px}
-.multi-row .label{font-size:12px;font-weight:500;color:var(--text);min-width:80px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.multi-row .label{font-size:12px;font-weight:500;color:var(--text);min-width:80px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .multi-row .bar-track{flex:1;height:24px;background:var(--bg2);border-radius:4px;overflow:hidden;position:relative}
 .multi-row .bar-fill{height:100%;border-radius:4px;transition:width .3s;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;color:#fff;min-width:fit-content}
 .multi-row .pct{font-size:12px;font-weight:600;color:var(--text2);min-width:36px;text-align:right}
@@ -146,14 +142,17 @@ section{padding:32px 0}
 .markets-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px}
 @media(max-width:768px){.markets-grid{grid-template-columns:1fr}}
 
-/* ── Featured Market ── */
-.featured-market{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;margin-bottom:24px}
-.featured-market h2{font-size:20px;font-weight:700;margin-bottom:8px}
-.featured-market .desc{color:var(--text2);font-size:14px;margin-bottom:16px}
-
 /* ── Chart ── */
-.chart-area{background:var(--bg2);border-radius:var(--radius);height:220px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;overflow:hidden;border:1px solid var(--border)}
+.chart-area{background:var(--bg2);border-radius:var(--radius);height:260px;position:relative;overflow:hidden;border:1px solid var(--border);margin-bottom:16px}
 .chart-area canvas{width:100%;height:100%}
+.chart-tooltip{position:absolute;background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;font-size:12px;pointer-events:none;z-index:10;box-shadow:var(--shadow-lg);display:none;white-space:nowrap}
+.chart-tooltip .tt-title{font-weight:700;margin-bottom:4px;color:var(--text)}
+.chart-tooltip .tt-row{display:flex;align-items:center;gap:6px;margin:2px 0}
+.chart-tooltip .tt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.chart-legend-item{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text2);cursor:pointer}
+.chart-legend-item .dot{width:10px;height:10px;border-radius:50%}
+.chart-legend-item.disabled{opacity:.35}
 
 /* ── Market Detail ── */
 .market-detail-header{padding:24px 0;border-bottom:1px solid var(--border);margin-bottom:24px}
@@ -163,11 +162,27 @@ section{padding:32px 0}
 /* ── Trade Panel ── */
 .trade-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;position:sticky;top:80px}
 .trade-panel h3{font-size:16px;font-weight:700;margin-bottom:16px}
-.trade-panel .outcome-btns{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
-.trade-panel .outcome-btn{padding:12px;border-radius:var(--radius);border:2px solid var(--border);font-weight:600;font-size:14px;text-align:left;transition:all .15s;display:flex;justify-content:space-between;align-items:center}
-.trade-panel .outcome-btn:hover{border-color:var(--border2)}
-.trade-panel .outcome-btn.selected{border-color:var(--accent);background:var(--accent-bg)}
-.trade-panel .outcome-btn .pct{font-size:16px;font-weight:800}
+
+/* ── Outcome Selector (compact for many outcomes) ── */
+.outcome-selector{max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px}
+.outcome-selector::-webkit-scrollbar{width:4px}
+.outcome-selector::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.outcome-option{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.outcome-option:last-child{border-bottom:none}
+.outcome-option:hover{background:var(--bg2)}
+.outcome-option.selected{background:var(--accent-bg);border-left:3px solid var(--accent)}
+.outcome-option .opt-name{font-size:13px;font-weight:500;color:var(--text)}
+.outcome-option .opt-pct{font-size:14px;font-weight:700}
+.outcome-search{width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--radius);margin-bottom:8px;font-size:13px;background:var(--bg);color:var(--text)}
+.outcome-search:focus{border-color:var(--accent);outline:none}
+
+/* ── Binary outcome buttons ── */
+.outcome-btns{display:flex;gap:8px;margin-bottom:12px}
+.outcome-btn{flex:1;padding:14px;border-radius:var(--radius);border:2px solid var(--border);font-weight:600;font-size:14px;text-align:center;transition:all .15s;cursor:pointer}
+.outcome-btn:hover{border-color:var(--border2)}
+.outcome-btn.selected{border-color:var(--accent);background:var(--accent-bg)}
+.outcome-btn .pct{display:block;font-size:18px;font-weight:800;margin-top:2px}
+
 .trade-panel .input-group{margin-bottom:12px}
 .trade-panel .input-group label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500}
 .trade-panel .input-group input,.trade-panel .input-group select{width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);font-size:14px}
@@ -227,6 +242,10 @@ footer a{color:var(--text2);margin:0 8px}
 
 /* ── Sort dropdown ── */
 .sort-select{padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border2);font-size:13px;background:var(--bg);color:var(--text)}
+
+/* ── Volume display ── */
+.vol-points{display:inline-flex;align-items:center;gap:3px;font-weight:600;color:var(--text2)}
+.vol-points .coin-icon{font-size:12px}
 </style>
 </head>
 <body>
@@ -246,9 +265,7 @@ footer a{color:var(--text2);margin:0 8px}
         <input type="text" placeholder="Search markets..." id="search-input" onkeydown="if(event.key==='Enter')doSearch()">
       </div>
       <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme" id="theme-btn">
-        <!-- Sun icon (shown in dark mode) -->
         <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        <!-- Moon icon (shown in light mode) -->
         <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
       </button>
       <div id="nav-auth">
@@ -297,7 +314,7 @@ footer a{color:var(--text2);margin:0 8px}
       </div>
       <div class="hero-stats">
         <div class="hero-stat"><div class="num" id="stat-markets">—</div><div class="label">Active Markets</div></div>
-        <div class="hero-stat"><div class="num" id="stat-volume">—</div><div class="label">24h Volume</div></div>
+        <div class="hero-stat"><div class="num" id="stat-volume">—</div><div class="label">24h Points</div></div>
         <div class="hero-stat"><div class="num" id="stat-users">—</div><div class="label">Predictors</div></div>
       </div>
     </div>
@@ -313,7 +330,6 @@ footer a{color:var(--text2);margin:0 8px}
         <select id="sort-select" onchange="loadMarkets()" class="sort-select">
           <option value="volume24hr">Most Active</option>
           <option value="volume">Total Volume</option>
-          <option value="liquidity">Most Liquid</option>
         </select>
       </div>
       <div class="cat-tabs" id="cat-tabs"></div>
@@ -334,12 +350,13 @@ footer a{color:var(--text2);margin:0 8px}
     </div>
     <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start">
       <div>
-        <div class="chart-area" id="md-chart"><canvas id="priceChart"></canvas></div>
+        <div class="chart-area" id="md-chart"><canvas id="priceChart"></canvas><div class="chart-tooltip" id="chart-tooltip"></div></div>
+        <div class="chart-legend" id="chart-legend"></div>
         <div id="md-description" style="font-size:14px;color:var(--text2);line-height:1.7"></div>
       </div>
       <div class="trade-panel" id="md-trade">
         <h3>Trade</h3>
-        <div class="outcome-btns" id="md-outcome-btns"></div>
+        <div id="md-outcome-area"></div>
         <div class="input-group">
           <label>Amount (coins)</label>
           <input type="number" id="trade-amount" value="50" min="10" oninput="updateReturnCalc()">
@@ -396,6 +413,11 @@ let currentMarket = null;
 let selectedOutcome = null;
 let allMarkets = [];
 let activeCat = "";
+let priceHistory = {};
+let hiddenLines = new Set();
+
+// ── Multi-outcome bar colors ──
+const BAR_COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#06b6d4","#ec4899","#8b5cf6","#14b8a6","#f97316","#84cc16"];
 
 // ── Theme ──
 function initTheme() {
@@ -411,7 +433,6 @@ function toggleTheme() {
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("qadr_theme", next);
   updateThemeIcon(next);
-  // Redraw chart if on market page
   if (currentMarket) drawChart(currentMarket);
 }
 function updateThemeIcon(theme) {
@@ -434,11 +455,11 @@ function toast(msg, ok = true) {
   el.className = "toast " + (ok ? "toast-ok" : "toast-err");
   setTimeout(() => el.className = "toast hidden", 3000);
 }
-function fmt(n) {
-  if (!n) return "$0";
-  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "K";
-  return "$" + n.toFixed(0);
+function fmtPoints(n) {
+  if (!n) return "0";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
+  return n.toFixed(0);
 }
 function pct(n) { return (n * 100).toFixed(1) + "%"; }
 function showPage(p) {
@@ -511,9 +532,6 @@ function sparklineSVG(data, w, h, color) {
   return `<svg class="sparkline" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
-// ── Multi-outcome bar colors ──
-const BAR_COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#06b6d4","#ec4899","#8b5cf6","#14b8a6"];
-
 // ── Load Markets ──
 async function loadMarkets() {
   const sort = document.getElementById("sort-select").value;
@@ -524,7 +542,7 @@ async function loadMarkets() {
     renderMarkets(markets);
     document.getElementById("stat-markets").textContent = markets.length;
     const totalVol = markets.reduce((s, m) => s + (m.volume24hr || 0), 0);
-    document.getElementById("stat-volume").textContent = fmt(totalVol);
+    document.getElementById("stat-volume").textContent = fmtPoints(totalVol) + " pts";
   } catch (e) {
     document.getElementById("markets-grid").innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text3)">Failed to load: ${e.message}</div>`;
   }
@@ -553,21 +571,17 @@ function renderMarkets(markets) {
 
   grid.innerHTML = markets.map(m => {
     const prices = m.prices || [0.5, 0.5];
-    const outcomes = m.outcomes || ["Yes", "No"];
-    const isBinary = outcomes.length === 2;
-    const change = m.oneDayChange || 0;
-    const changeClass = change >= 0 ? "up" : "down";
-    const changeSign = change >= 0 ? "+" : "";
-    const sparkColor = change >= 0 ? "var(--green)" : "var(--red)";
+    const options = m.outcomes || ["Yes", "No"];
+    const isBinary = options.length === 2;
+    const sparkColor = "var(--accent)";
     const sparkData = prices.length > 0
       ? [prices[0] - 0.05, prices[0] - 0.02, prices[0] - 0.01, prices[0], prices[0] + 0.01, prices[0] - 0.01, prices[0]]
       : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
 
     let probHTML = "";
     if (isBinary) {
-      // Binary: show YES/NO style with actual outcome names
-      const yesName = outcomes[0] || "Yes";
-      const noName = outcomes[1] || "No";
+      const yesName = options[0] || "Yes";
+      const noName = options[1] || "No";
       const yesPct = (prices[0] * 100).toFixed(1);
       const noPct = (prices[1] * 100).toFixed(1);
       probHTML = `<div class="prob-bar">
@@ -575,10 +589,9 @@ function renderMarkets(markets) {
         <div class="no-side" style="width:${noPct}%">${noPct}% ${noName}</div>
       </div>`;
     } else {
-      // Multi-outcome: show top 4 + "More..." link
       const showCount = 4;
-      const visible = outcomes.slice(0, showCount);
-      const hasMore = outcomes.length > showCount;
+      const visible = options.slice(0, showCount);
+      const hasMore = options.length > showCount;
       probHTML = `<div class="multi-outcomes">` +
         visible.map((o, i) => {
           const p = prices[i] || 0;
@@ -590,29 +603,27 @@ function renderMarkets(markets) {
           </div>`;
         }).join("") +
         (hasMore ? `<div class="multi-row" style="cursor:pointer" onclick="event.stopPropagation();openMarket('${m.id}')">
-          <span class="label" style="color:var(--accent);font-weight:600">+${outcomes.length - showCount} more...</span>
+          <span class="label" style="color:var(--accent);font-weight:600">+${options.length - showCount} more...</span>
           <div class="bar-track" style="background:transparent"></div>
         </div>` : "") +
       `</div>`;
     }
 
+    const volDisplay = `<span class="vol-points"><span class="coin-icon">🪙</span> ${fmtPoints(m.volume24hr || 0)}</span>`;
+
     return `
     <div class="market-card" onclick="openMarket('${m.id}')">
       <div class="card-top">
-        ${m.image ? `<img class="card-icon" src="${m.image}" alt="">` : `<div class="card-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg2)">📊</div>`}
+        <div class="card-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg2)">📊</div>
         <div class="card-title">${m.question}</div>
       </div>
       <div class="card-meta">
         <span class="tag">${m.category || "general"}</span>
-        ${m.endDate ? `<span>Ends ${m.endDate}</span>` : ""}
-        <span>Vol: ${fmt(m.volume24hr || m.volume || 0)}</span>
+        <span>24h: ${volDisplay}</span>
       </div>
       ${probHTML}
       <div class="card-footer">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="change ${changeClass}">${changeSign}${(change * 100).toFixed(1)}%</span>
-          <span>24h</span>
-        </div>
+        <span>${options.length} outcomes</span>
         ${sparklineSVG(sparkData, 80, 28, sparkColor)}
       </div>
     </div>`;
@@ -625,44 +636,81 @@ async function openMarket(id) {
     const m = await api("/api/markets/" + id);
     currentMarket = m;
     selectedOutcome = null;
+    hiddenLines = new Set();
     showPage("market");
 
     document.getElementById("md-question").textContent = m.question;
     document.getElementById("md-meta").innerHTML = `
       <span class="tag" style="padding:2px 8px;border-radius:4px;background:var(--bg2);font-size:11px;font-weight:500;text-transform:uppercase">${m.category || "general"}</span>
-      ${m.endDate ? `<span>Ends ${m.endDate}</span>` : ""}
-      <span>Vol: ${fmt(m.volume24hr || m.volume || 0)}</span>
-      ${m.liquidity ? `<span>Liquidity: ${fmt(m.liquidity)}</span>` : ""}
-      ${m.isGrouped ? `<span style="color:var(--accent)">${m.groupSize || m.outcomes.length} outcomes</span>` : ""}
+      <span>24h: <span class="vol-points"><span class="coin-icon">🪙</span> ${fmtPoints(m.volume24hr || 0)}</span></span>
+      <span>${m.outcomes.length} outcomes</span>
     `;
     document.getElementById("md-description").textContent = m.description || "";
 
-    const prices = m.prices || [0.5, 0.5];
-    const outcomes = m.outcomes || ["Yes", "No"];
-    const isBinary = outcomes.length === 2;
+    const prices = m.prices || [];
+    const options = m.outcomes || [];
+    const isBinary = options.length === 2;
 
-    // Outcome buttons — show ALL outcomes in detail view
-    document.getElementById("md-outcome-btns").innerHTML = outcomes.map((o, i) => {
-      const color = isBinary ? (i === 0 ? "var(--green)" : "var(--red)") : BAR_COLORS[i % BAR_COLORS.length];
-      const pctStr = (parseFloat(prices[i]) * 100).toFixed(1);
-      return `<button class="outcome-btn" onclick="selectOutcome(${i}, ${prices[i]})" style="border-color:${color}20">
-        <span>${o}</span>
-        <span class="pct" style="color:${color}">${pctStr}%</span>
-      </button>`;
-    }).join("");
+    // Build outcome selector
+    const outcomeArea = document.getElementById("md-outcome-area");
+    if (isBinary) {
+      // Binary: two big buttons
+      const yesColor = "var(--green)";
+      const noColor = "var(--red)";
+      outcomeArea.innerHTML = `<div class="outcome-btns">
+        <button class="outcome-btn" onclick="selectOutcome(0, ${prices[0]})" id="opt-btn-0" style="border-color:${yesColor}30">
+          <span>${options[0]}</span>
+          <span class="pct" style="color:${yesColor}">${pct(prices[0])}</span>
+        </button>
+        <button class="outcome-btn" onclick="selectOutcome(1, ${prices[1]})" id="opt-btn-1" style="border-color:${noColor}30">
+          <span>${options[1]}</span>
+          <span class="pct" style="color:${noColor}">${pct(prices[1])}</span>
+        </button>
+      </div>`;
+    } else {
+      // Multi-outcome: compact scrollable list with search
+      outcomeArea.innerHTML = `
+        <input type="text" class="outcome-search" placeholder="Search outcomes..." id="outcome-search" oninput="filterOutcomes(this.value)">
+        <div class="outcome-selector" id="outcome-selector">
+          ${options.map((o, i) => {
+            const color = BAR_COLORS[i % BAR_COLORS.length];
+            const pctStr = (prices[i] * 100).toFixed(1);
+            return `<div class="outcome-option" onclick="selectOutcome(${i}, ${prices[i]})" id="opt-btn-${i}" data-name="${o.toLowerCase()}">
+              <span class="opt-name">${o}</span>
+              <span class="opt-pct" style="color:${color}">${pctStr}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      `;
+    }
 
     const canTrade = token && currentUser;
     document.getElementById("trade-btn").style.display = canTrade ? "" : "none";
     document.getElementById("trade-login-msg").textContent = canTrade ? "" : "Log in to trade";
 
+    // Load price history and draw chart
+    try {
+      priceHistory = await api("/api/markets/" + id + "/history");
+    } catch { priceHistory = {}; }
     drawChart(m);
     updateReturnCalc();
   } catch (e) { toast(e.message, false); }
 }
 
+function filterOutcomes(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll(".outcome-option").forEach(el => {
+    const name = el.getAttribute("data-name");
+    el.style.display = name.includes(q) ? "" : "none";
+  });
+}
+
 function selectOutcome(idx, price) {
   selectedOutcome = { idx, price };
-  document.querySelectorAll(".outcome-btn").forEach((b, i) => b.classList.toggle("selected", i === idx));
+  // Update visual selection
+  document.querySelectorAll(".outcome-btn, .outcome-option").forEach(el => el.classList.remove("selected"));
+  const btn = document.getElementById("opt-btn-" + idx);
+  if (btn) btn.classList.add("selected");
   updateReturnCalc();
 }
 
@@ -691,13 +739,13 @@ async function placeTrade() {
   if (!amt || amt < 10) return toast("Minimum 10 coins", false);
   try {
     const d = await api("/api/predict", { method: "POST", body: JSON.stringify({ marketId: currentMarket.id, outcome: String(selectedOutcome.idx), coins: amt }) });
-    toast(`Trade placed! ${amt} coins at ${pct(selectedOutcome.price)}`);
+    toast(`Trade placed! ${amt} coins on "${d.outcome}" at ${pct(d.price)}`);
     loadMe();
     openMarket(currentMarket.id);
   } catch (e) { toast(e.message, false); }
 }
 
-// ── Chart ──
+// ── Interactive Multi-Line Chart ──
 function drawChart(m) {
   const canvas = document.getElementById("priceChart");
   const ctx = canvas.getContext("2d");
@@ -713,17 +761,34 @@ function drawChart(m) {
 
   ctx.clearRect(0, 0, w, h);
 
-  const currentPrice = m.prices?.[0] || 0.5;
-  const change = m.oneDayChange || 0;
-  const points = [];
-  for (let i = 0; i < 30; i++) {
-    const t = i / 29;
-    const base = currentPrice - change * (1 - t);
-    const noise = (Math.sin(i * 1.3) * 0.02 + Math.cos(i * 0.7) * 0.015);
-    points.push(Math.max(0.02, Math.min(0.98, base + noise)));
+  const options = m.outcomes || [];
+  const prices = m.prices || [];
+  const numLines = options.length;
+
+  // Generate synthetic history if no real data
+  const historyData = {};
+  for (let i = 0; i < numLines; i++) {
+    const currentPrice = prices[i] || 0.5;
+    const points = [];
+    for (let t = 0; t < 30; t++) {
+      const progress = t / 29;
+      const base = currentPrice * 0.7 + (currentPrice * 0.3) * progress;
+      const noise = (Math.sin(t * 1.3 + i * 2) * 0.03 + Math.cos(t * 0.7 + i) * 0.02);
+      points.push(Math.max(0.01, Math.min(0.99, base + noise)));
+    }
+    historyData[i] = points;
   }
 
-  // Grid
+  // Override with real history if available
+  if (priceHistory && Object.keys(priceHistory).length > 0) {
+    for (const [idx, points] of Object.entries(priceHistory)) {
+      if (points && points.length > 1) {
+        historyData[parseInt(idx)] = points.map(p => p.price);
+      }
+    }
+  }
+
+  // Draw grid
   ctx.strokeStyle = gridColor;
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= 4; i++) {
@@ -731,44 +796,53 @@ function drawChart(m) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
 
-  // Area fill
-  const gradient = ctx.createLinearGradient(0, 0, 0, h);
-  gradient.addColorStop(0, isDark ? "rgba(129,140,248,0.15)" : "rgba(99,102,241,0.12)");
-  gradient.addColorStop(1, "rgba(99,102,241,0)");
-  ctx.beginPath();
-  ctx.moveTo(0, h);
-  points.forEach((p, i) => {
-    const x = (i / (points.length - 1)) * w;
-    const y = h - p * h;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.lineTo(w, h);
-  ctx.closePath();
-  ctx.fillStyle = gradient;
-  ctx.fill();
+  // Draw each line
+  const linePositions = []; // Store for hover detection
+  for (let i = 0; i < numLines; i++) {
+    if (hiddenLines.has(i)) continue;
+    const data = historyData[i];
+    if (!data || data.length < 2) continue;
+    const color = BAR_COLORS[i % BAR_COLORS.length];
 
-  // Line
-  ctx.beginPath();
-  points.forEach((p, i) => {
-    const x = (i / (points.length - 1)) * w;
-    const y = h - p * h;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.strokeStyle = isDark ? "#818cf8" : "#6366f1";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
+    const pts = data.map((p, t) => ({
+      x: (t / (data.length - 1)) * w,
+      y: h - p * h,
+      price: p
+    }));
 
-  // Dot
-  const lastY = h - points[points.length - 1] * h;
-  ctx.beginPath();
-  ctx.arc(w - 4, lastY, 4, 0, Math.PI * 2);
-  ctx.fillStyle = isDark ? "#818cf8" : "#6366f1";
-  ctx.fill();
-  ctx.strokeStyle = isDark ? "#161a22" : "#fff";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+    // Area fill
+    const gradient = ctx.createLinearGradient(0, 0, 0, h);
+    gradient.addColorStop(0, color + "20");
+    gradient.addColorStop(1, color + "00");
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    // Dot at end
+    const last = pts[pts.length - 1];
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = isDark ? "#161a22" : "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    linePositions.push({ idx: i, name: options[i], color, pts });
+  }
 
   // Labels
   ctx.fillStyle = textColor;
@@ -776,7 +850,73 @@ function drawChart(m) {
   ctx.fillText("0%", 4, h - 4);
   ctx.fillText("50%", 4, h / 2 + 4);
   ctx.fillText("100%", 4, 14);
-  ctx.fillText(pct(currentPrice), w - 38, lastY - 8);
+
+  // Build legend
+  const legendEl = document.getElementById("chart-legend");
+  legendEl.innerHTML = options.map((o, i) => {
+    const color = BAR_COLORS[i % BAR_COLORS.length];
+    const isHidden = hiddenLines.has(i);
+    return `<div class="chart-legend-item ${isHidden ? 'disabled' : ''}" onclick="toggleLine(${i})">
+      <span class="dot" style="background:${color}"></span>
+      <span>${o}</span>
+      <span style="font-weight:700;color:${color}">${pct(prices[i])}</span>
+    </div>`;
+  }).join("");
+
+  // Hover tooltip
+  const tooltip = document.getElementById("chart-tooltip");
+  canvas.onmousemove = function(e) {
+    const rect2 = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect2.left;
+    const my = e.clientY - rect2.top;
+
+    // Find closest point across all visible lines
+    let bestDist = Infinity;
+    let bestPt = null;
+    let bestLine = null;
+
+    for (const line of linePositions) {
+      for (const pt of line.pts) {
+        const dist = Math.abs(pt.x - mx);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPt = pt;
+          bestLine = line;
+        }
+      }
+    }
+
+    if (bestPt && bestDist < 20) {
+      // Show tooltip
+      let html = `<div class="tt-title">${bestLine.name}</div>`;
+      // Show all lines at this x position
+      for (const line of linePositions) {
+        const ptIdx = line.pts.indexOf(bestPt);
+        if (ptIdx >= 0) {
+          html += `<div class="tt-row"><span class="tt-dot" style="background:${line.color}"></span><span>${line.name}</span><span style="font-weight:700">${pct(line.pts[ptIdx].price)}</span></div>`;
+        }
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.display = "block";
+      tooltip.style.left = Math.min(bestPt.x + 10, w - 150) + "px";
+      tooltip.style.top = Math.max(bestPt.y - 40, 10) + "px";
+    } else {
+      tooltip.style.display = "none";
+    }
+  };
+
+  canvas.onmouseleave = function() {
+    tooltip.style.display = "none";
+  };
+}
+
+function toggleLine(idx) {
+  if (hiddenLines.has(idx)) {
+    hiddenLines.delete(idx);
+  } else {
+    hiddenLines.add(idx);
+  }
+  if (currentMarket) drawChart(currentMarket);
 }
 
 // ── Leaderboard ──
