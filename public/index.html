@@ -311,6 +311,7 @@ footer a{color:var(--text2);margin:0 8px}
       <div class="btn-group">
         <button class="btn btn-primary btn-lg" onclick="showAuth('signup')">Start Predicting — Free</button>
         <button class="btn btn-outline btn-lg" onclick="document.getElementById('markets-section').scrollIntoView({behavior:'smooth'})">Browse Markets</button>
+        <button class="btn btn-outline btn-lg" id="hero-submit-btn" style="display:none" onclick="showSubmitMarket()">+ Submit Market</button>
       </div>
       <div class="hero-stats">
         <div class="hero-stat"><div class="num" id="stat-markets">—</div><div class="label">Active Markets</div></div>
@@ -393,6 +394,56 @@ footer a{color:var(--text2);margin:0 8px}
   <section><div class="container">
     <h2 class="section-title" style="margin-bottom:20px">My Profile</h2>
     <div id="profile-content"></div>
+  </div></section>
+</div>
+
+<!-- ═══ SUBMIT MARKET MODAL ═══ -->
+<div class="modal-overlay hidden" id="submit-modal" onclick="if(event.target===this)closeSubmit()">
+  <div class="modal" style="max-width:560px">
+    <h2 id="submit-title">Submit a Market</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Create a prediction market. It will be reviewed by an admin before going live.</p>
+    <div id="submit-for-loggedout" style="text-align:center;padding:20px">
+      <p style="margin-bottom:12px;color:var(--text2)">Log in to submit markets</p>
+      <button class="btn btn-primary" onclick="closeSubmit();showAuth('signin')">Log In</button>
+    </div>
+    <div id="submit-form" class="hidden">
+      <div class="form-group"><label>Question *</label><input type="text" id="submit-question" placeholder="e.g., Will Bitcoin hit $200K by end of 2027?"></div>
+      <div class="form-group"><label>Description</label><input type="text" id="submit-desc" placeholder="Add context (optional)"></div>
+      <div class="form-group"><label>Category</label>
+        <select id="submit-category">
+          <option value="general">General</option>
+          <option value="sports">Sports</option>
+          <option value="tech">Tech</option>
+          <option value="politics">Politics</option>
+          <option value="geopolitics">Geopolitics</option>
+          <option value="economy">Economy</option>
+          <option value="crypto">Crypto</option>
+          <option value="science">Science</option>
+          <option value="entertainment">Entertainment</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Outcomes (2-10) *</label>
+        <div id="outcome-inputs">
+          <div style="display:flex;gap:6px;margin-bottom:6px"><input type="text" class="outcome-input" placeholder="Outcome 1" style="flex:1;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg)"></div>
+          <div style="display:flex;gap:6px;margin-bottom:6px"><input type="text" class="outcome-input" placeholder="Outcome 2" style="flex:1;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg)"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="addOutcomeInput()" id="add-outcome-btn" style="margin-top:4px">+ Add outcome</button>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="submitMarket()">Submit for Review</button>
+      <p id="submit-status" style="font-size:12px;color:var(--text3);margin-top:8px;text-align:center"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN PAGE ═══ -->
+<div id="page-admin" class="hidden">
+  <section><div class="container">
+    <button class="btn btn-ghost btn-sm" onclick="showPage('home')" style="margin-bottom:12px">← Back</button>
+    <h2 class="section-title" style="margin-bottom:4px">Admin Panel</h2>
+    <p class="section-sub" style="margin-bottom:20px">Review and approve user-submitted markets</p>
+    <div id="admin-content">
+      <div style="text-align:center;padding:48px;color:var(--text3)">Loading...</div>
+    </div>
   </div></section>
 </div>
 
@@ -777,11 +828,13 @@ function drawChart(m) {
     historyData[i] = points;
   }
 
-  // Override with real history
+  // Override with real history (only if we have enough points)
   if (priceHistory && Object.keys(priceHistory).length > 0) {
     for (const [idx, points] of Object.entries(priceHistory)) {
-      if (points && points.length > 1) {
-        historyData[parseInt(idx)] = points.map(p => p.price);
+      const pricesArr = points && points.length > 0 ? points.map(p => p.price) : null;
+      // Keep synthetic data if real history has < 2 points, otherwise use real
+      if (pricesArr && pricesArr.length >= 2) {
+        historyData[parseInt(idx)] = pricesArr;
       }
     }
   }
@@ -793,9 +846,10 @@ function drawChart(m) {
     const data = historyData[i];
     if (!data || data.length < 2) continue;
     const color = BAR_COLORS[i % BAR_COLORS.length];
+    const n = data.length;
     const pts = data.map((p, t) => ({
-      x: (t / (data.length - 1)) * w,
-      y: h - p * h,
+      x: (n === 1) ? w / 2 : (t / (n - 1)) * w,
+      y: h - Math.max(0.01, Math.min(0.99, p)) * h,
       price: p
     }));
     lineData.push({ idx: i, name: options[i], color, pts });
@@ -1022,6 +1076,118 @@ async function loadProfile() {
     `;
   } catch (e) { toast(e.message, false); }
 }
+
+// ── Submit Market ──
+function showSubmitMarket() {
+  document.getElementById("submit-modal").classList.remove("hidden");
+  if (!token) {
+    document.getElementById("submit-for-loggedout").classList.remove("hidden");
+    document.getElementById("submit-form").classList.add("hidden");
+  } else {
+    document.getElementById("submit-for-loggedout").classList.add("hidden");
+    document.getElementById("submit-form").classList.remove("hidden");
+  }
+  document.getElementById("submit-status").textContent = "";
+}
+function closeSubmit() { document.getElementById("submit-modal").classList.add("hidden"); }
+function addOutcomeInput() {
+  const container = document.getElementById("outcome-inputs");
+  const count = container.querySelectorAll(".outcome-input").length;
+  if (count >= 10) return;
+  const div = document.createElement("div");
+  div.style.cssText = "display:flex;gap:6px;margin-bottom:6px";
+  div.innerHTML = `<input type="text" class="outcome-input" placeholder="Outcome ${count + 1}" style="flex:1;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg)">`;
+  container.appendChild(div);
+  if (count + 1 >= 10) document.getElementById("add-outcome-btn").style.display = "none";
+}
+async function submitMarket() {
+  const question = document.getElementById("submit-question").value.trim();
+  const desc = document.getElementById("submit-desc").value.trim();
+  const category = document.getElementById("submit-category").value;
+  const outcomeInputs = document.querySelectorAll(".outcome-input");
+  const outcomes = Array.from(outcomeInputs).map(i => i.value.trim()).filter(v => v);
+  if (!question) return toast("Question required", false);
+  if (outcomes.length < 2) return toast("Need at least 2 outcomes", false);
+  try {
+    const d = await api("/api/markets/submit", { method: "POST", body: JSON.stringify({ question, description: desc, category, outcomes }) });
+    toast("Submitted for review! +100 coins when approved.");
+    closeSubmit();
+    // Reset form
+    document.getElementById("submit-question").value = "";
+    document.getElementById("submit-desc").value = "";
+    document.getElementById("outcome-inputs").innerHTML = `
+      <div style="display:flex;gap:6px;margin-bottom:6px"><input type="text" class="outcome-input" placeholder="Outcome 1" style="flex:1;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg)"></div>
+      <div style="display:flex;gap:6px;margin-bottom:6px"><input type="text" class="outcome-input" placeholder="Outcome 2" style="flex:1;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg)"></div>
+    `;
+    document.getElementById("add-outcome-btn").style.display = "";
+  } catch (e) { toast(e.message, false); }
+}
+
+// ── Admin Panel ──
+async function loadAdmin() {
+  const el = document.getElementById("admin-content");
+  try {
+    const pending = await api("/api/admin/pending-markets");
+    if (pending.length === 0) {
+      el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text3)">No pending markets 🎉</div>';
+      return;
+    }
+    el.innerHTML = pending.map(m => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:12px">
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px">${m.question}</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">
+          <span class="tag" style="padding:2px 8px;border-radius:4px;background:var(--bg2);font-size:11px;text-transform:uppercase">${m.category}</span>
+          <span style="margin-left:8px">by ${m.creator_name || "unknown"}</span>
+          <span style="margin-left:8px">${new Date(m.created_at).toLocaleDateString()}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">${m.description || ""}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${(JSON.parse(m.outcomes || "[]") || []).map(o => `<span style="padding:3px 10px;border-radius:12px;background:var(--bg2);font-size:12px">${o}</span>`).join("")}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-green btn-sm" onclick="approveMarket('${m.id}')">✓ Approve</button>
+          <button class="btn btn-red btn-sm" onclick="rejectMarket('${m.id}')">✗ Reject</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    el.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red)">${e.message}</div>`;
+  }
+}
+async function approveMarket(id) {
+  try {
+    await api("/api/admin/approve-market/" + id, { method: "POST", body: "{}" });
+    toast("Market approved!");
+    loadAdmin();
+  } catch (e) { toast(e.message, false); }
+}
+async function rejectMarket(id) {
+  try {
+    await api("/api/admin/reject-market/" + id, { method: "POST", body: "{}" });
+    toast("Market rejected");
+    loadAdmin();
+  } catch (e) { toast(e.message, false); }
+}
+
+// ── Update nav for admin + submit ──
+const origUpdateNav = updateNav;
+updateNav = function() {
+  origUpdateNav();
+  if (currentUser && currentUser.isAdmin) {
+    const navLinks = document.getElementById("nav-links");
+    if (navLinks && !document.getElementById("nav-admin-link")) {
+      const a = document.createElement("a");
+      a.id = "nav-admin-link";
+      a.href = "#";
+      a.textContent = "Admin";
+      a.onclick = function() { showPage("admin"); loadAdmin(); return false; };
+      navLinks.appendChild(a);
+    }
+  }
+  if (token) {
+    document.getElementById("hero-submit-btn").style.display = "";
+  }
+};
 
 // ── Search ──
 function doSearch() {

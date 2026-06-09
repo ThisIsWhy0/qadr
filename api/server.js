@@ -1,5 +1,5 @@
 // Qadr — Predict anything. Earn on everything. Real stakes, zero risk.
-// Main API server — caches Polymarket data locally, serves from our own DB
+// Custom market platform — user-submitted, admin-approved
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -7,14 +7,13 @@ const jwt = require("jsonwebtoken");
 const { v4: uuid } = require("uuid");
 const Database = require("better-sqlite3");
 const path = require("path");
-const https = require("https");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const DB_PATH = path.join(__dirname, "..", "qadr.db");
 const JWT_SECRET = process.env.JWT_SECRET || "qadr-scoped-" + uuid();
 const SALT_ROUNDS = 10;
-const POLY_API = "https://gamma-api.polymarket.com";
+const ADMIN_USER_ID = "admin"; // First user is admin
 
 // ── Middleware
 app.use(cors());
@@ -37,6 +36,17 @@ function auth(req, res, next) {
   catch { res.status(401).json({ error: "Invalid token" }); }
 }
 
+// ── Admin check
+function isAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: "No token" });
+  const d = db();
+  try {
+    const u = d.prepare("SELECT is_admin FROM users WHERE id=?").get(req.user.userId);
+    if (!u || !u.is_admin) return res.status(403).json({ error: "Admin only" });
+    next();
+  } finally { d.close(); }
+}
+
 // ── Coin helper
 function awardCoins(d, userId, amount, type, desc, refId) {
   d.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").run(amount, userId);
@@ -46,204 +56,7 @@ function awardCoins(d, userId, amount, type, desc, refId) {
   return bal;
 }
 
-// ── Polymarket API (with timeout)
-function fetchPoly(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, res => {
-      let data = "";
-      res.on("data", c => data += c);
-      res.on("end", () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
-    });
-    req.on("error", reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Timeout")); });
-  });
-}
-
-// ── Sync markets from Polymarket → our DB
-async function syncMarketsFromPolymarket() {
-  console.log("[QADR] Starting market sync...");
-  const d = db();
-  const startTime = Date.now();
-
-  try {
-    // ── PASS 1: Multi-outcome events ──
-    const events = await fetchPoly(`${POLY_API}/events?active=true&closed=false&limit=100&order=volume24hr&ascending=false`);
-    console.log(`[QADR] Got ${events.length} events (${Date.now()-startTime}ms)`);
-
-    let synced = 0;
-
-    for (const evt of events) {
-      const markets = evt.markets || [];
-      if (markets.length === 0) continue;
-
-      const firstMarket = markets[0];
-      const firstOutcomes = typeof firstMarket.outcomes === "string" ? JSON.parse(firstMarket.outcomes) : (firstMarket.outcomes || ["Yes","No"]);
-      const allBinary = markets.every(m => {
-        const o = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
-        return o.length === 2;
-      });
-
-      if (allBinary && firstOutcomes.length === 2 && markets.length > 3) {
-        // Check if all markets are the SAME yes/no question with different parameters
-        // (e.g. "Iran closes its airspace by May 8?", "Iran closes its airspace by May 15?")
-        // Pattern: same prefix, different date/number at the end
-        const baseQuestions = markets.map(m => {
-          const q = m.question;
-          // Remove trailing date/number info
-          return q.replace(/\b(by|on|before|after|until)\s+.*$/, '').trim().toLowerCase();
-        });
-        const uniqueBases = new Set(baseQuestions);
-
-        if (uniqueBases.size <= 2) {
-          // Repeated binary: same question, different dates/thresholds
-          const sortedPrices = markets.map(m => {
-            const p = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
-            return parseFloat(p[0]) || 0.5;
-          }).sort((a, b) => a - b);
-          const yesPrice = sortedPrices[Math.floor(sortedPrices.length / 2)] || 0.5;
-
-          const category = detectCategory(evt.slug || "");
-          const marketId = "evt-" + slugify(evt.slug || "");
-          const now = new Date().toISOString();
-          const vol24 = parseFloat(evt.volume24hr || 0);
-          const vol = parseFloat(evt.volume || 0);
-          upsertMarket(d, marketId, evt.title || "", evt.description || "", category, "binary", ["Yes", "No"], [yesPrice, 1 - yesPrice], vol, vol24, now);
-          synced++;
-          continue;
-        }
-      }
-
-      // Multi-outcome: collect unique candidates
-      const candidateSet = {};
-      for (const m of markets) {
-        const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
-        const prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
-
-        if (outcomes.length === 2 && markets.length > 1) {
-          const match = m.question.match(/Will (.+?) win/i) || m.question.match(/^(.*?) vs\./i) || m.question.match(/^Will (.+?)\?/i);
-          const name = match ? match[1].trim() : m.question;
-          const price = parseFloat(prices[0]) || 0;
-          if (!candidateSet[name] || price > candidateSet[name].price) {
-            candidateSet[name] = { name, price };
-          }
-        } else if (outcomes.length > 2) {
-          for (let i = 0; i < outcomes.length; i++) {
-            const name = outcomes[i];
-            const price = parseFloat(prices[i]) || 0;
-            if (!candidateSet[name]) candidateSet[name] = { name, price };
-          }
-        }
-      }
-
-      const candidates = Object.values(candidateSet);
-      if (candidates.length >= 2) {
-        candidates.sort((a, b) => b.price - a.price);
-        const outcomes = candidates.map(c => c.name);
-        const pricesArr = candidates.map(c => c.price);
-        const category = detectCategory(evt.slug || "");
-        const marketId = "evt-" + slugify(evt.slug || "");
-        const now = new Date().toISOString();
-        const vol24 = parseFloat(evt.volume24hr || 0);
-        const vol = parseFloat(evt.volume || 0);
-        upsertMarket(d, marketId, evt.title || "", evt.description || "", category, "multiple", outcomes, pricesArr, vol, vol24, now);
-        synced++;
-      }
-    }
-
-    // ── PASS 2: Individual binary markets from /markets endpoint ──
-    // These are standalone binary markets NOT part of multi-outcome events
-    console.log(`[QADR] Fetching individual markets (${Date.now()-startTime}ms)...`);
-    let individualMarkets = [];
-    try {
-      individualMarkets = await fetchPoly(`${POLY_API}/markets?active=true&closed=false&limit=100&order=volume24hr&ascending=false`);
-    } catch(e) {
-      console.log(`[QADR] Individual markets fetch failed: ${e.message}`);
-    }
-    console.log(`[QADR] Got ${individualMarkets.length} individual markets (${Date.now()-startTime}ms)`);
-
-    let binarySynced = 0;
-
-    for (const m of individualMarkets) {
-      const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes","No"]);
-      const pricesArr = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || ["0.5","0.5"]);
-
-      if (outcomes.length !== 2) continue;
-
-      const p0 = parseFloat(pricesArr[0]) || 0;
-      if (p0 <= 0.001 || p0 >= 0.999) continue;
-
-      // Skip markets that belong to events (already handled in Pass 1)
-      const evts = m.events || [];
-      if (evts.length > 0) continue;
-
-      const mid = "mkt-" + String(m.id);
-
-      const slug = m.slug || String(m.id);
-      const category = detectCategory(slug);
-      const now = new Date().toISOString();
-      const vol24 = parseFloat(m.volume24hr || 0);
-      const vol = parseFloat(m.volume || 0);
-
-      upsertMarket(d, mid, m.question, m.description || "", category, "binary", outcomes, [p0, 1-p0], vol, vol24, now);
-      binarySynced++;
-    }
-
-    console.log(`[QADR] Synced ${synced} multi + ${binarySynced} binary = ${synced+binarySynced} total (${Date.now()-startTime}ms)`);
-  } catch (e) {
-    console.error("[QADR] Sync error:", e.message);
-  } finally {
-    d.close();
-  }
-}
-
-function detectCategory(slug) {
-  if (!slug) return "general";
-  if (slug.match(/election|president|political|senate|congress|governor|mayor/i)) return "politics";
-  if (slug.match(/cup|sports|nba|nfl|soccer|football|tennis|baseball|hockey|ufc|f1|esports|mlb|nhl/i)) return "sports";
-  if (slug.match(/bitcoin|crypto|ethereum|btc/i)) return "crypto";
-  if (slug.match(/fed|interest|economy|gdp|inflation|recession|oil|crude|wti/i)) return "economy";
-  if (slug.match(/iran|israel|geopolitics|war|peace|regime|strait|hormuz/i)) return "geopolitics";
-  if (slug.match(/tech|ai|apple|google|microsoft|openai|spacex|tesla|elon|musk|ipo/i)) return "tech";
-  if (slug.match(/science|climate|weather|space|nasa/i)) return "science";
-  return "general";
-}
-
-function slugify(s) {
-  return s.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
-}
-
-function upsertMarket(d, marketId, question, description, category, resolutionType, outcomes, pricesArr, vol, vol24, now) {
-  const existing = d.prepare("SELECT id FROM markets WHERE id = ?").get(marketId);
-  if (existing) {
-    d.prepare(`UPDATE markets SET question=?, description=?, category=?, resolution_type=?, outcomes=?, status=?, updated_at=? WHERE id=?`)
-      .run(question, description, category, resolutionType, JSON.stringify(outcomes), "active", now, marketId);
-  } else {
-    d.prepare(`INSERT INTO markets (id,question,description,category,resolution_type,outcomes,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
-      .run(marketId, question, description, category, resolutionType, JSON.stringify(outcomes), "active", now, now);
-  }
-
-  // Upsert options and price history
-  for (let i = 0; i < outcomes.length; i++) {
-    const optId = marketId + "-opt-" + i;
-    const price = pricesArr[i] || 0.5;
-    const existingOpt = d.prepare("SELECT id FROM market_options WHERE id = ?").get(optId);
-    if (existingOpt) {
-      d.prepare("UPDATE market_options SET current_price=?, updated_at=? WHERE id=?").run(price, now, optId);
-    } else {
-      d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
-        .run(optId, marketId, outcomes[i], price, now, now);
-    }
-    // Record price history (throttle: only keep last 100 per outcome)
-    d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
-      .run(uuid(), marketId, i, price, now);
-  }
-
-  // Volume in points ($1 = 10 pts)
-  d.prepare("UPDATE markets SET total_volume=?, volume24hr=? WHERE id=?")
-    .run(Math.round(vol * 10), Math.round(vol24 * 10), marketId);
-}
-
-// ── Ensure DB schema exists
+// ── Ensure DB schema
 function ensureSchema() {
   const d = db();
   try {
@@ -266,6 +79,7 @@ function ensureSchema() {
         referred_by     TEXT,
         is_premium      INTEGER DEFAULT 0,
         premium_until   TEXT,
+        is_admin        INTEGER DEFAULT 0,
         created_at      TEXT DEFAULT (datetime('now')),
         updated_at      TEXT DEFAULT (datetime('now'))
       );
@@ -277,12 +91,10 @@ function ensureSchema() {
         category        TEXT DEFAULT 'general',
         creator_id      TEXT REFERENCES users(id),
         resolution_type TEXT DEFAULT 'binary',
-        resolution_url  TEXT DEFAULT '',
-        outcomes       TEXT DEFAULT '[]',
+        outcomes        TEXT DEFAULT '[]',
         status          TEXT DEFAULT 'active',
+        submission_status TEXT DEFAULT 'approved',
         outcome         TEXT DEFAULT '',
-        yes_pool        INTEGER DEFAULT 0,
-        no_pool         INTEGER DEFAULT 0,
         total_volume    INTEGER DEFAULT 0,
         volume24hr      INTEGER DEFAULT 0,
         created_at      TEXT DEFAULT (datetime('now')),
@@ -311,7 +123,7 @@ function ensureSchema() {
       CREATE TABLE IF NOT EXISTS predictions (
         id              TEXT PRIMARY KEY,
         user_id         TEXT NOT NULL REFERENCES users(id),
-        market_id       NOT NULL REFERENCES markets(id),
+        market_id       TEXT NOT NULL REFERENCES markets(id),
         outcome         TEXT NOT NULL,
         coins_at_stake  INTEGER NOT NULL,
         odds_at_time    REAL NOT NULL,
@@ -365,17 +177,92 @@ function ensureSchema() {
       CREATE INDEX IF NOT EXISTS idx_coin_tx_user ON coin_transactions(user_id);
       CREATE INDEX IF NOT EXISTS idx_markets_status ON markets(status);
       CREATE INDEX IF NOT EXISTS idx_markets_category ON markets(category);
+      CREATE INDEX IF NOT EXISTS idx_markets_submission ON markets(submission_status);
       CREATE INDEX IF NOT EXISTS idx_market_options_market ON market_options(market_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_market ON price_history(market_id);
     `);
 
-    // Migration: rename old 'options' column to 'outcomes' (SQLite 3.25+)
-    try {
-      d.exec("ALTER TABLE markets RENAME COLUMN options TO outcomes");
-      console.log("[QADR] Migrated: options → outcomes");
-    } catch(e) {
-      // Column already renamed or doesn't exist — fine
+    // Migrations for existing DBs
+    try { d.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0"); } catch(e) {}
+    try { d.exec("ALTER TABLE markets ADD COLUMN submission_status TEXT DEFAULT 'approved'"); } catch(e) {}
+    try { d.exec("ALTER TABLE markets RENAME COLUMN options TO outcomes"); } catch(e) {}
+  } finally {
+    d.close();
+  }
+}
+
+// ── Seed custom markets
+function seedMarkets() {
+  const d = db();
+  try {
+    const count = d.prepare("SELECT COUNT(*) as c FROM markets").get();
+    if (count.c > 0) return; // Don't overwrite existing markets
+
+    const markets = [
+      // 🏀 Sports
+      { q: "Will the Sacramento Kings make the 2027 NBA playoffs?", desc: "California's team returns to form", cat: "sports", type: "binary", outcomes: ["Yes, they'll make it", "No, they'll miss"] },
+      { q: "Who will win the 2027 NBA Championship?", desc: "Next season's title winner", cat: "sports", type: "multiple", outcomes: ["Boston Celtics", "Denver Nuggets", "Oklahoma City Thunder", "Los Angeles Lakers", "Milwaukee Bucks", "Other"] },
+      { q: "Will Shohei Ohtani hit 50+ HRs in 2027?", desc: "The two-way superstar's power surge", cat: "sports", type: "binary", outcomes: ["50+ home runs", "Under 50 home runs"] },
+      { q: "Which team will win the 2027 Super Bowl?", desc: "NFL's biggest game", cat: "sports", type: "multiple", outcomes: ["Kansas City Chiefs", "San Francisco 49ers", "Dallas Cowboys", "Philadelphia Eagles", "Buffalo Bills", "Other"] },
+      { q: "Will Lionel Messi play in the 2026 World Cup?", desc: "The GOAT's World Cup farewell", cat: "sports", type: "binary", outcomes: ["Yes, he'll play", "No, he won't"] },
+      { q: "Will an American win a Grand Slam in 2027?", desc: "Tennis Grand Slam singles title", cat: "sports", type: "binary", outcomes: ["Yes", "No"] },
+      { q: "Will the 49ers have a winning season in 2026?", desc: "NFC West contenders", cat: "sports", type: "binary", outcomes: ["Above .500", "Below .500"] },
+
+      // 💻 Tech
+      { q: "Will Apple release an iPhone with a foldable screen by end of 2027?", desc: "The long-rumored foldable iPhone", cat: "tech", type: "binary", outcomes: ["Yes, foldable iPhone", "No foldable iPhone"] },
+      { q: "Which company will have the best AI model by end of 2027?", desc: "Race for AI dominance", cat: "tech", type: "multiple", outcomes: ["OpenAI", "Google DeepMind", "Anthropic", "Meta", "Apple", "Chinese company", "Other"] },
+      { q: "Will Tesla launch a $25,000 car by 2028?", desc: "The budget EV", cat: "tech", type: "binary", outcomes: ["Yes, under $25K", "No, above $25K"] },
+      { q: "Will the next iPhone be USB-C only (no Lightning)?", desc: "Apple's port transition", cat: "tech", type: "binary", outcomes: ["USB-C only", "Still has Lightning or portless"] },
+      { q: "Will a humanoid robot be sold to consumers by 2028?", desc: "Real robot butlers", cat: "tech", type: "binary", outcomes: ["Yes", "No"] },
+      { q: "Will VR headset sales surpass 30 million in 2027?", desc: "Virtual reality goes mainstream", cat: "tech", type: "binary", outcomes: ["Over 30M sold", "Under 30M sold"] },
+
+      // 🏛️ Politics
+      { q: "Will gas prices in California drop below $4.00/gallon by end of 2027?", desc: "California energy policy", cat: "politics", type: "binary", outcomes: ["Below $4", "Above $4"] },
+      { q: "Will California minimum wage reach $20/hr by 2028?", desc: "California labor policy", cat: "politics", type: "binary", outcomes: ["Yes, $20+", "No, under $20"] },
+      { q: "Which party will win the 2028 US Presidential Election?", desc: "The next commander in chief", cat: "politics", type: "multiple", outcomes: ["Democrat", "Republican", "Independent / Third Party"] },
+      { q: "Will the US pass a federal AI regulation bill by 2027?", desc: "AI governance", cat: "politics", type: "binary", outcomes: ["Yes", "No"] },
+
+      // 🌍 Geopolitics
+      { q: "Will the Strait of Hormuz be disrupted by the end of 2026?", desc: "Global oil supply chokepoint", cat: "geopolitics", type: "binary", outcomes: ["Yes, some disruption", "No major disruption"] },
+      { q: "Will a major earthquake (7.0+) hit California by 2028?", desc: "The big one — seismic forecasting", cat: "geopolitics", type: "binary", outcomes: ["Yes, 7.0+", "No"] },
+      { q: "Will a new US-China trade war start by end of 2026?", desc: "Economic tensions escalate", cat: "geopolitics", type: "binary", outcomes: ["Yes", "No"] },
+
+      // 📈 Economy
+      { q: "Will Bitcoin surpass $150,000 by end of 2027?", desc: "Crypto price prediction", cat: "crypto", type: "binary", outcomes: ["Above $150K", "Below $150K"] },
+      { q: "Which will perform better in 2027?", desc: "Crypto rivals", cat: "crypto", type: "multiple", outcomes: ["Bitcoin", "Ethereum", "Solana", "None — all down"] },
+      { q: "Will the Fed cut interest rates in 2026?", desc: "Federal Reserve policy", cat: "economy", type: "binary", outcomes: ["Yes", "No"] },
+      { q: "Will US inflation be above 3% by end of 2026?", desc: "CPI measurement", cat: "economy", type: "binary", outcomes: ["Above 3%", "Below 3%"] },
+
+      // 🔬 Science
+      { q: "Will SpaceX land humans on Mars by 2030?", desc: "The red planet mission", cat: "science", type: "binary", outcomes: ["Yes", "No"] },
+      { q: "Will a new COVID-like pandemic emerge by 2028?", desc: "Global health risk", cat: "science", type: "binary", outcomes: ["Yes", "No"] },
+      { q: "Will a major solar flare cause significant disruption by 2027?", desc: "Solar storm risk", cat: "science", type: "binary", outcomes: ["Yes", "No"] },
+
+      // 🎯 Fun / Pop Culture
+      { q: "Which movie will win Best Picture at the 2027 Oscars?", desc: "Academy Awards prediction", cat: "entertainment", type: "multiple", outcomes: ["A new IP", "A sequel/reboot", "An indie film", "A streaming original"] },
+      { q: "Will TikTok be banned in the US by end of 2027?", desc: "Social media regulation", cat: "entertainment", type: "binary", outcomes: ["Yes, banned", "No, it stays"] },
+      { q: "Will GTA VI be released in 2026?", desc: "Most anticipated game ever", cat: "entertainment", type: "binary", outcomes: ["2026 release", "Delayed to 2027+"] },
+      { q: "Will a US city get a new MLS team by 2028?", desc: "MLS expansion", cat: "sports", type: "binary", outcomes: ["Yes", "No"] },
+    ];
+
+    for (const m of markets) {
+      const marketId = "mkt-" + uuid().slice(0, 8);
+      const now = new Date().toISOString();
+      d.prepare("INSERT INTO markets (id,question,description,category,resolution_type,outcomes,status,submission_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+        .run(marketId, m.q, m.desc, m.cat, m.type, JSON.stringify(m.outcomes), "active", "approved", now, now);
+
+      // Seed market_options with equal prices
+      for (let i = 0; i < m.outcomes.length; i++) {
+        const optId = marketId + "-opt-" + i;
+        const price = 1.0 / m.outcomes.length;
+        d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
+          .run(optId, marketId, m.outcomes[i], price, now, now);
+        // Seed a single price history point
+        d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
+          .run(uuid(), marketId, i, price, now);
+      }
     }
+    console.log(`[QADR] Seeded ${markets.length} custom markets`);
   } finally {
     d.close();
   }
@@ -393,21 +280,25 @@ app.post("/api/auth/signup", (req, res) => {
   try {
     if (d.prepare("SELECT id FROM users WHERE username=? OR email=?").get(username, email))
       return res.status(409).json({ error: "Username or email taken" });
+
+    const userCount = d.prepare("SELECT COUNT(*) as c FROM users").get();
+    const isFirstUser = userCount.c === 0;
+
     const id = uuid(), hash = bcrypt.hashSync(password, SALT_ROUNDS), ref = uuid().slice(0, 8);
     let refBy = null, startCoins = 500;
     if (referralCode) {
       const r = d.prepare("SELECT id FROM users WHERE referral_code=?").get(referralCode);
       if (r) { refBy = r.id; startCoins += 200; }
     }
-    d.prepare("INSERT INTO users (id,username,email,password_hash,display_name,coins,referral_code,referred_by) VALUES (?,?,?,?,?,?,?,?)")
-      .run(id, username, email, hash, displayName||username, startCoins, ref, refBy);
+    d.prepare("INSERT INTO users (id,username,email,password_hash,display_name,coins,referral_code,referred_by,is_admin) VALUES (?,?,?,?,?,?,?,?,?)")
+      .run(id, username, email, hash, displayName||username, startCoins, ref, refBy, isFirstUser ? 1 : 0);
     awardCoins(d, id, 500, "signup_bonus", "Welcome to Qadr! 500 coins on the house.");
     if (refBy) {
       awardCoins(d, refBy, 100, "referral", `${username} joined via your code!`, id);
       d.prepare("INSERT INTO referrals (id,referrer_id,referred_id) VALUES (?,?,?)").run(uuid(), refBy, id);
     }
     const token = jwt.sign({ userId: id, username }, JWT_SECRET, { expiresIn: "30d" });
-    res.json({ token, user: { id, username, displayName: displayName||username, coins: startCoins } });
+    res.json({ token, user: { id, username, displayName: displayName||username, coins: startCoins, isAdmin: isFirstUser } });
   } finally { d.close(); }
 });
 
@@ -418,7 +309,7 @@ app.post("/api/auth/signin", (req, res) => {
     const u = d.prepare("SELECT * FROM users WHERE username=? OR email=?").get(username, username);
     if (!u || !bcrypt.compareSync(password, u.password_hash)) return res.status(401).json({ error: "Invalid credentials" });
     const token = jwt.sign({ userId: u.id, username: u.username }, JWT_SECRET, { expiresIn: "30d" });
-    res.json({ token, user: { id:u.id, username:u.username, displayName:u.display_name, email:u.email, coins:u.coins, referralCode:u.referral_code, totalPredictions:u.total_predictions, correctPredictions:u.correct_predictions, currentStreak:u.current_streak } });
+    res.json({ token, user: { id:u.id, username:u.username, displayName:u.display_name, email:u.email, coins:u.coins, referralCode:u.referral_code, totalPredictions:u.total_predictions, correctPredictions:u.correct_predictions, currentStreak:u.current_streak, isAdmin: !!u.is_admin } });
   } finally { d.close(); }
 });
 
@@ -446,7 +337,7 @@ app.post("/api/daily-login", auth, (req, res) => {
   } finally { d.close(); }
 });
 
-// ── MARKETS — served from our own DB (cached from Polymarket)
+// ── MARKETS — custom, from our own DB
 app.get("/api/markets", (req, res) => {
   const d = db();
   try {
@@ -456,7 +347,7 @@ app.get("/api/markets", (req, res) => {
     const search = req.query.q || "";
     const sort = req.query.order || "volume24hr";
 
-    let where = "WHERE status='active'";
+    let where = "WHERE status='active' AND submission_status='approved'";
     const params = [];
     if (category) { where += " AND category=?"; params.push(category); }
     if (search) { where += " AND (question LIKE ? OR description LIKE ?)"; params.push(`%${search}%`, `%${search}%`); }
@@ -496,11 +387,10 @@ app.get("/api/markets", (req, res) => {
   } finally { d.close(); }
 });
 
-// ── Single market detail
 app.get("/api/markets/:id", (req, res) => {
   const d = db();
   try {
-    const m = d.prepare("SELECT * FROM markets WHERE id=?").get(req.params.id);
+    const m = d.prepare("SELECT * FROM markets WHERE id=? AND submission_status='approved'").get(req.params.id);
     if (!m) return res.status(404).json({ error: "Market not found" });
 
     const options = d.prepare("SELECT * FROM market_options WHERE market_id=? ORDER BY current_price DESC").all(req.params.id);
@@ -525,12 +415,10 @@ app.get("/api/markets/:id", (req, res) => {
   } finally { d.close(); }
 });
 
-// ── Price history for charts
 app.get("/api/markets/:id/history", (req, res) => {
   const d = db();
   try {
     const marketId = req.params.id;
-    // Get all price history points, grouped by outcome_index
     const rows = d.prepare(`
       SELECT outcome_index, price, recorded_at
       FROM price_history
@@ -538,7 +426,6 @@ app.get("/api/markets/:id/history", (req, res) => {
       ORDER BY recorded_at ASC
     `).all(marketId);
 
-    // Group by outcome_index
     const byOutcome = {};
     for (const r of rows) {
       if (!byOutcome[r.outcome_index]) byOutcome[r.outcome_index] = [];
@@ -551,6 +438,96 @@ app.get("/api/markets/:id/history", (req, res) => {
   } finally { d.close(); }
 });
 
+// ── SUBMIT A NEW MARKET (user-created, pending approval)
+app.post("/api/markets/submit", auth, (req, res) => {
+  const { question, description, category, outcomes } = req.body;
+  if (!question || !question.trim()) return res.status(400).json({ error: "Question required" });
+  if (!outcomes || !Array.isArray(outcomes) || outcomes.length < 2)
+    return res.status(400).json({ error: "Need at least 2 outcomes" });
+  if (outcomes.length > 10) return res.status(400).json({ error: "Max 10 outcomes" });
+
+  // Validate outcome names
+  const cleanOutcomes = outcomes.map(o => String(o).trim()).filter(o => o.length > 0);
+  if (cleanOutcomes.length < 2) return res.status(400).json({ error: "Need at least 2 non-empty outcomes" });
+
+  const d = db();
+  try {
+    const marketCount = d.prepare("SELECT COUNT(*) as c FROM markets WHERE creator_id=? AND submission_status='pending'").get(req.user.userId);
+    if (marketCount.c >= 3) return res.status(400).json({ error: "You can have max 3 pending submissions" });
+
+    const cat = category && typeof category === "string" ? category.trim().toLowerCase().slice(0, 20) : "general";
+    const marketId = "mkt-" + uuid().slice(0, 8);
+    const now = new Date().toISOString();
+    const isBinary = cleanOutcomes.length === 2 ? "binary" : "multiple";
+    const prices = cleanOutcomes.map(() => 1.0 / cleanOutcomes.length);
+
+    d.prepare("INSERT INTO markets (id,question,description,category,creator_id,resolution_type,outcomes,status,submission_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+      .run(marketId, question.trim(), (description||"").trim(), cat, req.user.userId, isBinary, JSON.stringify(cleanOutcomes), "active", "pending", now, now);
+
+    for (let i = 0; i < cleanOutcomes.length; i++) {
+      const optId = marketId + "-opt-" + i;
+      d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
+        .run(optId, marketId, cleanOutcomes[i], prices[i], now, now);
+      d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
+        .run(uuid(), marketId, i, prices[i], now);
+    }
+
+    res.json({ id: marketId, message: "Market submitted for review. It will appear once approved by an admin." });
+  } finally { d.close(); }
+});
+
+// ── SEE MY SUBMISSIONS
+app.get("/api/markets/my-submissions", auth, (req, res) => {
+  const d = db();
+  try {
+    const markets = d.prepare("SELECT id,question,category,submission_status,created_at FROM markets WHERE creator_id=? ORDER BY created_at DESC").all(req.user.userId);
+    res.json(markets);
+  } finally { d.close(); }
+});
+
+// ── ADMIN: pending submissions
+app.get("/api/admin/pending-markets", auth, isAdmin, (req, res) => {
+  const d = db();
+  try {
+    const markets = d.prepare(`
+      SELECT m.*, u.username as creator_name
+      FROM markets m LEFT JOIN users u ON m.creator_id=u.id
+      WHERE m.submission_status='pending'
+      ORDER BY m.created_at DESC
+    `).all();
+    res.json(markets);
+  } finally { d.close(); }
+});
+
+// ── ADMIN: approve a market
+app.post("/api/admin/approve-market/:id", auth, isAdmin, (req, res) => {
+  const d = db();
+  try {
+    const m = d.prepare("SELECT * FROM markets WHERE id=? AND submission_status='pending'").get(req.params.id);
+    if (!m) return res.status(404).json({ error: "Market not found or already processed" });
+    const now = new Date().toISOString();
+    d.prepare("UPDATE markets SET submission_status='approved', updated_at=? WHERE id=?").run(now, req.params.id);
+
+    // Award creator with coins for approved market
+    if (m.creator_id) {
+      awardCoins(d, m.creator_id, 100, "market_approved", `Your market "${m.question.slice(0,40)}" was approved!`, m.id);
+    }
+
+    res.json({ message: "Market approved" });
+  } finally { d.close(); }
+});
+
+// ── ADMIN: reject a market
+app.post("/api/admin/reject-market/:id", auth, isAdmin, (req, res) => {
+  const d = db();
+  try {
+    const m = d.prepare("SELECT * FROM markets WHERE id=? AND submission_status='pending'").get(req.params.id);
+    if (!m) return res.status(404).json({ error: "Market not found or already processed" });
+    d.prepare("UPDATE markets SET submission_status='rejected', status='inactive' WHERE id=?").run(req.params.id);
+    res.json({ message: "Market rejected" });
+  } finally { d.close(); }
+});
+
 // ── PREDICTIONS
 app.post("/api/predict", auth, (req, res) => {
   const { marketId, outcome, coins } = req.body;
@@ -559,7 +536,7 @@ app.post("/api/predict", auth, (req, res) => {
 
   const d = db();
   try {
-    const market = d.prepare("SELECT * FROM markets WHERE id=?").get(marketId);
+    const market = d.prepare("SELECT * FROM markets WHERE id=? AND status='active' AND submission_status='approved'").get(marketId);
     if (!market) return res.status(400).json({ error: "Market not found" });
 
     const u = d.prepare("SELECT coins FROM users WHERE id=?").get(req.user.userId);
@@ -576,9 +553,7 @@ app.post("/api/predict", auth, (req, res) => {
     d.prepare("INSERT INTO predictions (id,user_id,market_id,outcome,coins_at_stake,odds_at_time) VALUES (?,?,?,?,?,?)")
       .run(id, req.user.userId, marketId, String(outcomeIdx), coins, price);
 
-    // Update pools
     d.prepare("UPDATE markets SET total_volume = total_volume + ? WHERE id=?").run(coins, marketId);
-
     awardCoins(d, req.user.userId, -coins, "prediction", `Predicted "${outcomes[outcomeIdx]}" on "${market.question.slice(0,40)}"`, id);
 
     res.json({ id, coins: u.coins - coins, outcome: outcomes[outcomeIdx], price });
@@ -631,7 +606,7 @@ app.post("/api/redeem", auth, (req, res) => {
 app.get("/api/me", auth, (req, res) => {
   const d = db();
   try {
-    const u = d.prepare("SELECT id,username,display_name,email,coins,bio,total_predictions,correct_predictions,current_streak,longest_streak,is_premium,referral_code,created_at FROM users WHERE id=?").get(req.user.userId);
+    const u = d.prepare("SELECT id,username,display_name,email,coins,bio,total_predictions,correct_predictions,current_streak,longest_streak,is_premium,is_admin,referral_code,created_at FROM users WHERE id=?").get(req.user.userId);
     u.recentTransactions = d.prepare("SELECT * FROM coin_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 20").all(req.user.userId);
     u.recentPredictions = d.prepare("SELECT p.*,m.question FROM predictions p JOIN markets m ON p.market_id=m.id WHERE p.user_id=? ORDER BY p.placed_at DESC LIMIT 20").all(req.user.userId);
     u.rank = d.prepare("SELECT COUNT(*)+1 as rank FROM users WHERE correct_predictions > (SELECT correct_predictions FROM users WHERE id=?)").get(req.user.userId).rank;
@@ -654,13 +629,14 @@ app.post("/api/earn/ad-view", auth, (req, res) => {
 app.get("/api/categories", (req, res) => {
   res.json([
     { id: "", label: "All", icon: "🔥" },
-    { id: "politics", label: "Politics", icon: "🏛️" },
-    { id: "sports", label: "Sports", icon: "⚽" },
-    { id: "crypto", label: "Crypto", icon: "₿" },
+    { id: "sports", label: "Sports", icon: "🏀" },
     { id: "tech", label: "Tech", icon: "💻" },
-    { id: "science", label: "Science", icon: "🔬" },
-    { id: "economy", label: "Economy", icon: "📈" },
+    { id: "politics", label: "Politics", icon: "🏛️" },
     { id: "geopolitics", label: "Geopolitics", icon: "🌍" },
+    { id: "economy", label: "Economy", icon: "📈" },
+    { id: "crypto", label: "Crypto", icon: "₿" },
+    { id: "science", label: "Science", icon: "🔬" },
+    { id: "entertainment", label: "Entertainment", icon: "🎬" },
   ]);
 });
 
@@ -672,11 +648,11 @@ app.get("*", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "in
 // ═══════════════════════════════════════════════════════════════
 
 ensureSchema();
+seedMarkets();
 
-// Initial sync from Polymarket
-syncMarketsFromPolymarket().then(() => {
-  // Refresh every 60 seconds
-  setInterval(syncMarketsFromPolymarket, 60000);
+app.listen(PORT, "0.0.0.0", () => {
+  const d = db();
+  const mc = d.prepare("SELECT COUNT(*) as c FROM markets WHERE submission_status='approved'").get();
+  d.close();
+  console.log(`Qadr running on port ${PORT} — ${mc.c} markets loaded`);
 });
-
-app.listen(PORT, "0.0.0.0", () => console.log(`Qadr running on port ${PORT}`));
