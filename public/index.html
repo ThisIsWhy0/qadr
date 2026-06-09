@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════════
-   QADR — Polymarket Exact Clone
+   QADR — Polymarket Exact Clone + All Restored Pages
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
@@ -30,7 +30,6 @@
   --radius: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --chart-grid: rgba(255, 255, 255, 0.05);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -56,8 +55,8 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 .search-box svg { width: 16px; height: 16px; color: var(--text3); flex-shrink: 0; }
 
 .nav-right { display: flex; align-items: center; gap: 16px; }
-.nav-right a { font-size: 14px; font-weight: 500; color: var(--blue); display: flex; align-items: center; gap: 4px; }
-.nav-right a svg { width: 14px; height: 14px; }
+.nav-right a { font-size: 14px; font-weight: 500; color: var(--text2); display: flex; align-items: center; gap: 4px; transition: color 0.15s; }
+.nav-right a:hover { color: var(--text); }
 
 /* ── Sub Nav ── */
 .sub-nav { border-bottom: 1px solid var(--border); background: var(--bg); height: 40px; display: flex; align-items: center; }
@@ -65,13 +64,13 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 .sub-nav .container::-webkit-scrollbar { display: none; }
 .sub-nav a { font-size: 13px; font-weight: 500; color: var(--text2); white-space: nowrap; }
 .sub-nav a:hover, .sub-nav a.active { color: var(--text); }
-.sub-nav a.trending { color: var(--text); display: flex; align-items: center; gap: 4px; }
-.sub-nav a.trending::before { content: "📈"; font-size: 14px; }
 
 /* ── Buttons ── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; transition: all 0.15s; white-space: nowrap; }
 .btn-primary { background: var(--blue); color: #fff; }
 .btn-primary:hover { background: var(--blue-hover); }
+.btn-green { background: var(--green); color: #fff; }
+.btn-red { background: var(--red); color: #fff; }
 .btn-outline { border: 1px solid rgba(255,255,255,0.1); color: var(--text); background: transparent; }
 .btn-outline:hover { background: rgba(255,255,255,0.05); }
 .btn-ghost { color: var(--text2); }
@@ -83,7 +82,7 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 @media(max-width: 1024px) { .dashboard { grid-template-columns: 1fr; } }
 
 /* ── Featured Market ── */
-.featured-market { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.featured-market { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 20px; margin-bottom: 32px; }
 .fm-header { display: flex; justify-content: space-between; align-items: flex-start; }
 .fm-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); margin-bottom: 8px; }
 .fm-meta img { width: 16px; height: 16px; border-radius: 4px; }
@@ -114,26 +113,16 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 .sidebar-section { margin-bottom: 32px; }
 .sidebar-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
 .sidebar-title svg { width: 16px; height: 16px; color: var(--text3); }
-.news-item { display: flex; gap: 12px; margin-bottom: 16px; font-size: 14px; line-height: 1.4; }
-.news-num { color: var(--text3); font-weight: 600; font-size: 13px; }
-.news-content { flex: 1; font-weight: 500; }
-.news-stat { text-align: right; }
-.news-stat .main { font-weight: 700; font-size: 15px; }
-.news-stat .sub { font-size: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
-.news-stat .sub.up { color: var(--green); }
-
 .topic-item { display: flex; gap: 12px; margin-bottom: 12px; font-size: 14px; align-items: center; cursor: pointer; padding: 8px; border-radius: var(--radius); transition: background 0.2s; }
 .topic-item:hover { background: rgba(255,255,255,0.05); }
 .topic-num { color: var(--text3); font-weight: 600; width: 16px; }
-.topic-name { flex: 1; font-weight: 500; }
+.topic-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topic-vol { color: var(--text2); font-size: 13px; display: flex; align-items: center; gap: 4px; }
 .topic-vol svg { width: 12px; height: 12px; color: #ef4444; }
 
 /* ── All Markets ── */
 .markets-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .markets-header h2 { font-size: 18px; font-weight: 700; }
-.markets-actions { display: flex; gap: 12px; color: var(--text2); }
-.markets-actions svg { width: 18px; height: 18px; cursor: pointer; }
 
 .markets-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 24px; scrollbar-width: none; }
 .markets-tabs::-webkit-scrollbar { display: none; }
@@ -163,14 +152,40 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 
 .mc-vol { font-size: 12px; color: var(--text3); margin-top: 16px; font-weight: 500; display: flex; align-items: center; gap: 4px; }
 
-/* ── Auth Modal ── */
+/* ── Restored Pages (Leaderboard, Prizes, Profile, Admin) ── */
+.page-section { padding: 48px 0; }
+.page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+.page-sub { font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+
+.lb-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
+.lb-table th { text-align: left; padding: 16px; font-size: 12px; text-transform: uppercase; color: var(--text3); border-bottom: 1px solid var(--border); font-weight: 600; }
+.lb-table td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 500; }
+.lb-table tr:last-child td { border-bottom: none; }
+.lb-table tr:hover td { background: var(--bg2); }
+.rank-gold { color: #f59e0b; font-weight: 800; }
+.rank-silver { color: #9ca3af; font-weight: 700; }
+.rank-bronze { color: #cd7f32; font-weight: 700; }
+
+.prizes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.prize-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; text-align: center; transition: all 0.2s; }
+.prize-card:hover { border-color: rgba(255,255,255,0.15); background: var(--card-hover); }
+.prize-icon { font-size: 32px; margin-bottom: 12px; }
+.prize-cost { font-size: 14px; color: var(--blue); font-weight: 700; margin-top: 8px; }
+
+.profile-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+.stat-card .lbl { font-size: 12px; color: var(--text3); text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
+.stat-card .val { font-size: 24px; font-weight: 700; color: var(--text); }
+
+/* ── Modals ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
 .modal { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.modal-lg { max-width: 560px; }
 .modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
-.form-group input { width: 100%; padding: 12px; border-radius: var(--radius); border: 1px solid var(--border2); background: rgba(0,0,0,0.2); font-size: 14px; }
-.form-group input:focus { border-color: var(--blue); outline: none; background: rgba(0,0,0,0.4); }
+.form-group input, .form-group select { width: 100%; padding: 12px; border-radius: var(--radius); border: 1px solid var(--border2); background: rgba(0,0,0,0.2); font-size: 14px; }
+.form-group input:focus, .form-group select:focus { border-color: var(--blue); outline: none; background: rgba(0,0,0,0.4); }
 .modal .btn { width: 100%; margin-top: 8px; padding: 12px; font-size: 15px; }
 .modal .switch { text-align: center; margin-top: 16px; font-size: 13px; color: var(--text2); }
 .modal .switch a { color: var(--blue); cursor: pointer; font-weight: 600; }
@@ -180,7 +195,6 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: var(--radius); font-size: 14px; font-weight: 600; z-index: 2000; animation: slideUp 0.25s; background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* ── Loading ── */
 .loading { text-align: center; padding: 48px; color: var(--text3); font-weight: 500; font-size: 14px; }
 </style>
 </head>
@@ -191,7 +205,7 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   <div class="container">
     <div class="logo" onclick="showPage('home')">
       <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      Polymarket
+      Qadr
     </div>
     
     <div class="search-box">
@@ -200,52 +214,37 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
     </div>
 
     <div class="nav-right">
-      <a href="#" style="color:var(--text2)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        How it works
-      </a>
+      <a href="#" onclick="showPage('leaderboard');return false">Leaderboard</a>
+      <a href="#" onclick="showPage('prizes');return false">Prizes</a>
+      <div id="nav-admin-container" class="hidden">
+        <a href="#" onclick="showPage('admin');return false" style="color:var(--red)">Admin</a>
+      </div>
+      
       <div id="nav-auth" style="display:flex;gap:12px;margin-left:16px">
         <button class="btn btn-ghost" onclick="showAuth('signin')">Log In</button>
         <button class="btn btn-primary" onclick="showAuth('signup')">Sign Up</button>
       </div>
       <div id="nav-user" class="hidden" style="display:flex;align-items:center;gap:12px;margin-left:16px">
-        <div style="font-weight:700;font-size:14px;background:rgba(255,255,255,0.1);padding:6px 12px;border-radius:6px;">
-          $<span id="nav-coins">0</span>
+        <button class="btn btn-outline btn-sm" onclick="showSubmitMarket()">+ Submit Market</button>
+        <div style="font-weight:700;font-size:14px;background:rgba(255,255,255,0.1);padding:6px 12px;border-radius:6px;cursor:pointer" onclick="showPage('profile')" title="View Profile">
+          🪙 <span id="nav-coins">0</span>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
       </div>
-      <button style="margin-left:8px;color:var(--text2)">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
     </div>
   </div>
 </nav>
 
 <!-- ═══ SUB NAV ═══ -->
 <div class="sub-nav">
-  <div class="container">
-    <a href="#" class="trending active">Trending</a>
-    <a href="#">Breaking</a>
-    <a href="#">New</a>
-    <a href="#" style="color:var(--border2)">|</a>
-    <a href="#">Politics</a>
-    <a href="#">Sports</a>
-    <a href="#">Crypto</a>
-    <a href="#">Esports</a>
-    <a href="#">Iran</a>
-    <a href="#">Finance</a>
-    <a href="#">Geopolitics</a>
-    <a href="#">Tech</a>
-    <a href="#">Culture</a>
-    <a href="#">Economy</a>
-    <a href="#">Weather</a>
-    <a href="#">Mentions</a>
-    <a href="#">Elections</a>
-    <a href="#">More ⌄</a>
+  <div class="container" id="sub-nav-links">
+    <!-- Dynamically populated -->
   </div>
 </div>
 
-<!-- ═══ MAIN APP ═══ -->
+<!-- ═══ PAGES ═══ -->
+
+<!-- HOME -->
 <div id="page-home" class="container">
   <div class="dashboard">
     <!-- Left: Featured Market -->
@@ -255,43 +254,22 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
           <div>
             <div class="fm-meta">
               <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><rect width='16' height='16' fill='%233b82f6'/></svg>" alt="icon">
-              <span id="fm-cat" style="text-transform:uppercase;letter-spacing:0.5px">Geopolitics · Iran</span>
+              <span id="fm-cat" style="text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Category</span>
             </div>
-            <h1 class="fm-title" id="fm-question">US x Iran permanent peace deal by...?</h1>
-          </div>
-          <div style="display:flex;gap:12px;color:var(--text3)">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+            <h1 class="fm-title" id="fm-question">Question</h1>
           </div>
         </div>
 
         <div class="fm-content">
           <!-- Outcomes List -->
           <div style="display:flex;flex-direction:column;justify-content:space-between">
-            <div class="fm-outcomes" id="fm-outcomes">
-              <!-- Rendered via JS -->
-            </div>
+            <div class="fm-outcomes" id="fm-outcomes"></div>
             
-            <div id="fm-trade-ui" class="hidden" style="background:rgba(255,255,255,0.03);padding:12px;border-radius:8px;border:1px solid var(--border);margin-top:24px">
-              <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Trade <span id="fm-trade-target" style="font-weight:700;color:var(--text)"></span></div>
+            <div id="fm-trade-ui" class="hidden" style="background:rgba(255,255,255,0.03);padding:16px;border-radius:8px;border:1px solid var(--border);margin-top:24px">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Predict <span id="fm-trade-target" style="font-weight:700;color:var(--text)"></span></div>
               <div class="trade-inline">
-                <input type="number" id="trade-amount" placeholder="Amount ($)" min="10">
+                <input type="number" id="trade-amount" placeholder="Amount (🪙)" min="10">
                 <button class="btn-primary" onclick="placeTrade()">Buy</button>
-              </div>
-            </div>
-
-            <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.05)">
-              <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text3);margin-bottom:6px">
-                <span style="font-weight:600">Bloomberg.com</span> · 4d ago
-              </div>
-              <div style="font-size:13px;line-height:1.4;font-weight:500;margin-bottom:16px;color:var(--text2)">
-                Trump Says He Plans to Make Blanche 'Permanent Attorney General'
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text3);margin-bottom:6px">
-                <span style="font-weight:600">Reuters</span> · 8h ago
-              </div>
-              <div style="font-size:13px;line-height:1.4;font-weight:500;color:var(--text2)">
-                Morning Bid: Chip chill, jobs heat and war
               </div>
             </div>
           </div>
@@ -304,12 +282,11 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
         </div>
 
         <div class="fm-footer">
-          <div>$<span id="fm-vol">0</span> Vol</div>
+          <div><span id="fm-vol">0</span> Vol</div>
           <div style="display:flex;align-items:center;gap:12px">
-            <span>Ends Dec 31, 2026</span>
             <div style="display:flex;align-items:center;gap:4px;color:var(--text2)">
               <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-              Polymarket
+              Qadr
             </div>
           </div>
         </div>
@@ -320,96 +297,23 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
     <div class="sidebar">
       <div class="sidebar-section">
         <div class="sidebar-title">
-          Breaking news <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </div>
-        
-        <div class="news-item">
-          <div class="news-num">1</div>
-          <div class="news-content">Will turnout in the second round of the 2026 Peruvian presidential election be...</div>
-          <div class="news-stat">
-            <div class="main">97%</div>
-            <div class="sub up">↗ 57%</div>
-          </div>
-        </div>
-        <div class="news-item">
-          <div class="news-num">2</div>
-          <div class="news-content">Iran closes its airspace by June 8?</div>
-          <div class="news-stat">
-            <div class="main">100%</div>
-            <div class="sub up">↗ 48%</div>
-          </div>
-        </div>
-        <div class="news-item">
-          <div class="news-num">3</div>
-          <div class="news-content">Will Fujimori win the 2nd round of the 2026 Peru presidential election by 0-4%?</div>
-          <div class="news-stat">
-            <div class="main">80%</div>
-            <div class="sub up">↗ 33%</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="sidebar-section" style="margin-top:40px">
-        <div class="sidebar-title">
           Hot topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
-        
-        <div class="topic-item">
-          <div class="topic-num">1</div>
-          <div class="topic-name">Peru</div>
-          <div class="topic-vol">$139M today <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 10.5c-1.5 0-2.5-1.5-2.5-3.5 0-1.5-1-3-3-3s-3 1.5-3 3c0 2-1 3.5-2.5 3.5S4 12 4 14c0 3.5 3.5 6 8 6s8-2.5 8-6c0-2-1.5-3.5-2.5-3.5z"/></svg> <span style="color:var(--text3);font-size:14px;margin-left:4px">›</span></div>
+        <div id="hot-topics">
+          <div class="loading" style="padding:24px">Loading...</div>
         </div>
-        <div class="topic-item">
-          <div class="topic-num">2</div>
-          <div class="topic-name">Israel</div>
-          <div class="topic-vol">$13M today <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 10.5c-1.5 0-2.5-1.5-2.5-3.5 0-1.5-1-3-3-3s-3 1.5-3 3c0 2-1 3.5-2.5 3.5S4 12 4 14c0 3.5 3.5 6 8 6s8-2.5 8-6c0-2-1.5-3.5-2.5-3.5z"/></svg> <span style="color:var(--text3);font-size:14px;margin-left:4px">›</span></div>
-        </div>
-        <div class="topic-item">
-          <div class="topic-num">3</div>
-          <div class="topic-name">Keiko</div>
-          <div class="topic-vol">$20M today <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 10.5c-1.5 0-2.5-1.5-2.5-3.5 0-1.5-1-3-3-3s-3 1.5-3 3c0 2-1 3.5-2.5 3.5S4 12 4 14c0 3.5 3.5 6 8 6s8-2.5 8-6c0-2-1.5-3.5-2.5-3.5z"/></svg> <span style="color:var(--text3);font-size:14px;margin-left:4px">›</span></div>
-        </div>
-        <div class="topic-item">
-          <div class="topic-num">4</div>
-          <div class="topic-name">Oil</div>
-          <div class="topic-vol">$5M today <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 10.5c-1.5 0-2.5-1.5-2.5-3.5 0-1.5-1-3-3-3s-3 1.5-3 3c0 2-1 3.5-2.5 3.5S4 12 4 14c0 3.5 3.5 6 8 6s8-2.5 8-6c0-2-1.5-3.5-2.5-3.5z"/></svg> <span style="color:var(--text3);font-size:14px;margin-left:4px">›</span></div>
-        </div>
-        <div class="topic-item">
-          <div class="topic-num">5</div>
-          <div class="topic-name">Bob</div>
-          <div class="topic-vol">$615K today <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 10.5c-1.5 0-2.5-1.5-2.5-3.5 0-1.5-1-3-3-3s-3 1.5-3 3c0 2-1 3.5-2.5 3.5S4 12 4 14c0 3.5 3.5 6 8 6s8-2.5 8-6c0-2-1.5-3.5-2.5-3.5z"/></svg> <span style="color:var(--text3);font-size:14px;margin-left:4px">›</span></div>
-        </div>
-        
-        <button class="btn btn-outline" style="width:100%;margin-top:16px;border-radius:24px">Explore all</button>
       </div>
     </div>
   </div>
 
   <!-- All Markets -->
-  <div style="margin-top: 48px; margin-bottom: 64px;">
+  <div style="margin-bottom: 64px;">
     <div class="markets-header">
       <h2>All markets</h2>
-      <div class="markets-actions">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-      </div>
     </div>
 
     <div class="markets-tabs" id="cat-tabs">
-      <button class="markets-tab active">All</button>
-      <button class="markets-tab">Trump</button>
-      <button class="markets-tab">Iran</button>
-      <button class="markets-tab">Peru Election</button>
-      <button class="markets-tab">2026 NBA Playoffs</button>
-      <button class="markets-tab">SpaceX</button>
-      <button class="markets-tab">Anthropic IPO</button>
-      <button class="markets-tab">June 9 Primaries</button>
-      <button class="markets-tab">Colombia Election</button>
-      <button class="markets-tab">LA Mayor</button>
-      <button class="markets-tab">California Governor</button>
-      <button class="markets-tab">Lebanon</button>
-      <span style="color:var(--text3);display:flex;align-items:center;margin-left:8px">›</span>
+      <!-- Dynamically populated -->
     </div>
 
     <div class="markets-grid" id="markets-grid">
@@ -418,7 +322,42 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   </div>
 </div>
 
-<!-- ═══ AUTH MODAL ═══ -->
+<!-- LEADERBOARD -->
+<div id="page-leaderboard" class="container hidden page-section">
+  <h2 class="page-title">Leaderboard</h2>
+  <p class="page-sub">Top predictors on Qadr</p>
+  <table class="lb-table">
+    <thead>
+      <tr><th>#</th><th>Player</th><th>Correct</th><th>Accuracy</th><th>Streak</th><th>Coins</th></tr>
+    </thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+</div>
+
+<!-- PRIZES -->
+<div id="page-prizes" class="container hidden page-section">
+  <h2 class="page-title">Redeem Prizes</h2>
+  <p class="page-sub">Turn your coins into real rewards</p>
+  <div class="prizes-grid" id="prizes-grid"></div>
+</div>
+
+<!-- PROFILE -->
+<div id="page-profile" class="container hidden page-section">
+  <h2 class="page-title">My Profile</h2>
+  <p class="page-sub" id="profile-email"></p>
+  <div id="profile-content"></div>
+</div>
+
+<!-- ADMIN -->
+<div id="page-admin" class="container hidden page-section">
+  <h2 class="page-title">Admin Panel</h2>
+  <p class="page-sub">Review and approve user-submitted markets</p>
+  <div id="admin-content"></div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Auth Modal -->
 <div class="modal-overlay hidden" id="auth-modal" onclick="if(event.target===this)closeAuth()">
   <div class="modal">
     <h2 id="auth-title">Create Account</h2>
@@ -427,6 +366,36 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
     <div class="form-group"><label>Password</label><input type="password" id="auth-password" placeholder="Min 6 characters"></div>
     <button class="btn btn-primary" id="auth-submit" onclick="handleAuth()">Sign Up</button>
     <div class="switch" id="auth-switch">Already have an account? <a onclick="showAuth('signin')">Log In</a></div>
+  </div>
+</div>
+
+<!-- Submit Market Modal -->
+<div class="modal-overlay hidden" id="submit-modal" onclick="if(event.target===this)closeSubmit()">
+  <div class="modal modal-lg">
+    <h2 id="submit-title">Submit a Market</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;text-align:center">Create a prediction market. It will be reviewed by an admin before going live.</p>
+    <div id="submit-form">
+      <div class="form-group"><label>Question *</label><input type="text" id="submit-question" placeholder="e.g., Will Bitcoin hit $200K by end of 2027?"></div>
+      <div class="form-group"><label>Description</label><input type="text" id="submit-desc" placeholder="Add context (optional)"></div>
+      <div class="form-group"><label>Category</label>
+        <select id="submit-category">
+          <option value="General">General</option>
+          <option value="Sports">Sports</option>
+          <option value="Tech">Tech</option>
+          <option value="Politics">Politics</option>
+          <option value="Crypto">Crypto</option>
+          <option value="Science">Science</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Outcomes (2-10) *</label>
+        <div id="outcome-inputs">
+          <div style="display:flex;gap:8px;margin-bottom:8px"><input type="text" class="outcome-input" placeholder="Outcome 1"></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px"><input type="text" class="outcome-input" placeholder="Outcome 2"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="addOutcomeInput()" id="add-outcome-btn">+ Add outcome</button>
+      </div>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="submitMarket()">Submit for Review</button>
+    </div>
   </div>
 </div>
 
@@ -440,6 +409,7 @@ let currentUser = null;
 let currentMarket = null;
 let selectedOutcome = null;
 let allMarkets = [];
+let activeCat = "";
 let priceHistory = {};
 let hiddenLines = new Set();
 
@@ -468,6 +438,17 @@ function fmtPoints(n) {
 }
 function pct(n) { return Math.round(n * 100) + "%"; }
 
+function showPage(p) {
+  document.querySelectorAll("[id^='page-']").forEach(el => el.classList.add("hidden"));
+  document.getElementById("page-" + p).classList.remove("hidden");
+  if (p === "home") { renderMarkets(activeCat ? allMarkets.filter(m => m.category === activeCat) : allMarkets); }
+  if (p === "leaderboard") loadLeaderboard();
+  if (p === "prizes") loadPrizes();
+  if (p === "profile") loadProfile();
+  if (p === "admin") loadAdmin();
+  window.scrollTo(0, 0);
+}
+
 // ── Auth ──
 function showAuth(mode) {
   document.getElementById("auth-modal").classList.remove("hidden");
@@ -495,15 +476,16 @@ async function handleAuth() {
       token = d.token; currentUser = d.user;
     }
     localStorage.setItem("qadr_token", token);
-    closeAuth(); updateNav();
+    closeAuth(); updateNav(); toast("Welcome to Qadr!");
   } catch (e) { toast(e.message); }
 }
-function logout() { token = null; currentUser = null; localStorage.removeItem("qadr_token"); updateNav(); }
+function logout() { token = null; currentUser = null; localStorage.removeItem("qadr_token"); updateNav(); showPage("home"); }
 async function loadMe() { if (!token) return; try { currentUser = await api("/api/me"); updateNav(); } catch { logout(); } }
 function updateNav() {
   const authed = token && currentUser;
   document.getElementById("nav-auth").classList.toggle("hidden", authed);
   document.getElementById("nav-user").classList.toggle("hidden", !authed);
+  document.getElementById("nav-admin-container").classList.toggle("hidden", !(authed && currentUser.isAdmin));
   if (authed) document.getElementById("nav-coins").textContent = fmtPoints(currentUser.coins);
 }
 
@@ -512,15 +494,47 @@ async function loadData() {
   try {
     const markets = await api("/api/markets?limit=100&order=volume24hr");
     allMarkets = markets;
+    renderCategories(markets);
+    renderHotTopics(markets);
     renderMarkets(markets);
     if (markets.length > 0) {
-      // Find a multi-outcome market for the featured slot if possible
       const featured = markets.find(m => m.outcomes && m.outcomes.length > 2) || markets[0];
       openMarket(featured.id);
     }
   } catch (e) {
     document.getElementById("markets-grid").innerHTML = `<div class="loading">Failed to load markets</div>`;
   }
+}
+
+function renderCategories(markets) {
+  const cats = {};
+  markets.forEach(m => { const c = m.category || "General"; cats[c] = (cats[c] || 0) + 1; });
+  const sortedCats = Object.entries(cats).sort((a, b) => b[1] - a[1]).map(c => c[0]);
+  
+  // Sub Nav
+  document.getElementById("sub-nav-links").innerHTML = `<a href="#" class="trending active" onclick="filterCat('');return false">Trending</a>` +
+    sortedCats.slice(0, 15).map(c => `<a href="#" onclick="filterCat('${c}');return false">${c}</a>`).join("");
+    
+  // Market Tabs
+  document.getElementById("cat-tabs").innerHTML = `<button class="markets-tab ${activeCat === '' ? 'active' : ''}" onclick="filterCat('')">All</button>` +
+    sortedCats.slice(0, 10).map(c => `<button class="markets-tab ${activeCat === c ? 'active' : ''}" onclick="filterCat('${c}')">${c}</button>`).join("");
+}
+
+function filterCat(cat) {
+  activeCat = cat;
+  renderCategories(allMarkets); // update active states
+  renderMarkets(cat ? allMarkets.filter(m => m.category === cat) : allMarkets);
+}
+
+function renderHotTopics(markets) {
+  const top = markets.slice(0, 5);
+  document.getElementById("hot-topics").innerHTML = top.map((m, i) => `
+    <div class="topic-item" onclick="openMarket('${m.id}')">
+      <div class="topic-num">${i+1}</div>
+      <div class="topic-name">${m.question}</div>
+      <div class="topic-vol">${fmtPoints(m.volume24hr || 0)} <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 10.5c-1.5 0-2.5-1.5-2.5-3.5 0-1.5-1-3-3-3s-3 1.5-3 3c0 2-1 3.5-2.5 3.5S4 12 4 14c0 3.5 3.5 6 8 6s8-2.5 8-6c0-2-1.5-3.5-2.5-3.5z"/></svg></div>
+    </div>
+  `).join("");
 }
 
 function renderMarkets(markets) {
@@ -553,9 +567,7 @@ function renderMarkets(markets) {
           </div>
         </div>
       `).join("");
-      if (options.length > 3) {
-        outcomesHTML += `<div class="mc-row" style="margin-top:4px;color:var(--blue);font-size:12px">+${options.length-3} more</div>`;
-      }
+      if (options.length > 3) { outcomesHTML += `<div class="mc-row" style="margin-top:4px;color:var(--blue);font-size:12px">+${options.length-3} more</div>`; }
     }
 
     return `
@@ -567,7 +579,7 @@ function renderMarkets(markets) {
         <div class="mc-title">${m.question}</div>
       </div>
       <div class="mc-outcomes">${outcomesHTML}</div>
-      <div class="mc-vol">$${fmtPoints(m.volume24hr || 0)} Vol</div>
+      <div class="mc-vol">🪙 ${fmtPoints(m.volume24hr || 0)} Vol</div>
     </div>`;
   }).join("");
 }
@@ -575,6 +587,7 @@ function renderMarkets(markets) {
 function doSearch() {
   const q = document.getElementById("search-input").value.trim().toLowerCase();
   renderMarkets(allMarkets.filter(m => m.question.toLowerCase().includes(q)));
+  if(q) showPage("home");
 }
 
 async function openMarket(id) {
@@ -582,16 +595,16 @@ async function openMarket(id) {
     const m = allMarkets.find(x => x.id === id) || await api("/api/markets/" + id);
     currentMarket = m;
     selectedOutcome = null;
+    showPage("home");
     document.getElementById("featured-market").style.display = "flex";
     
     document.getElementById("fm-question").textContent = m.question;
-    document.getElementById("fm-cat").textContent = (m.category || "General") + (m.category ? " · Global" : "");
+    document.getElementById("fm-cat").textContent = (m.category || "General");
     document.getElementById("fm-vol").textContent = fmtPoints(m.volume24hr || 0);
 
     const prices = m.prices || [];
     const options = m.outcomes || [];
     
-    // Render outcomes list on left of chart
     document.getElementById("fm-outcomes").innerHTML = options.map((o, i) => {
       const color = BAR_COLORS[i % BAR_COLORS.length];
       return `
@@ -610,7 +623,6 @@ async function openMarket(id) {
     try { priceHistory = await api("/api/markets/" + id + "/history"); } catch { priceHistory = {}; }
     drawChart(m);
     
-    // Smooth scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) { console.error(e); }
 }
@@ -627,10 +639,10 @@ function selectOutcome(idx, price) {
 async function placeTrade() {
   if (!selectedOutcome) return;
   const amt = parseInt(document.getElementById("trade-amount").value);
-  if (!amt || amt < 10) return toast("Minimum $10");
+  if (!amt || amt < 10) return toast("Minimum 10 🪙");
   try {
     const d = await api("/api/predict", { method: "POST", body: JSON.stringify({ marketId: currentMarket.id, outcome: String(selectedOutcome.idx), coins: amt }) });
-    toast(`Bought $${amt} of "${d.outcome}"`);
+    toast(`Bought ${amt} 🪙 of "${d.outcome}"`);
     loadMe();
     document.getElementById("fm-trade-ui").classList.add("hidden");
     document.getElementById("trade-amount").value = "";
@@ -661,7 +673,6 @@ function drawChart(m) {
       const noise = (Math.sin(t * 1.3 + i * 2) * 0.05 + Math.cos(t * 0.7 + i) * 0.05);
       points.push(Math.max(0.01, Math.min(0.99, base + noise)));
     }
-    // Ensure last point is exactly the current price
     points[points.length - 1] = currentPrice;
     historyData[i] = points;
   }
@@ -669,9 +680,7 @@ function drawChart(m) {
   if (priceHistory && Object.keys(priceHistory).length > 0) {
     for (const [idx, points] of Object.entries(priceHistory)) {
       const pricesArr = points && points.length > 0 ? points.map(p => p.price) : null;
-      if (pricesArr && pricesArr.length >= 2) {
-        historyData[parseInt(idx)] = pricesArr;
-      }
+      if (pricesArr && pricesArr.length >= 2) historyData[parseInt(idx)] = pricesArr;
     }
   }
 
@@ -682,125 +691,164 @@ function drawChart(m) {
     if (!data || data.length < 2) continue;
     const color = BAR_COLORS[i % BAR_COLORS.length];
     const n = data.length;
-    const pts = data.map((p, t) => ({
-      x: (n === 1) ? w / 2 : (t / (n - 1)) * w,
-      y: h - Math.max(0.01, Math.min(0.99, p)) * h,
-      price: p
-    }));
+    const pts = data.map((p, t) => ({ x: (n === 1) ? w / 2 : (t / (n - 1)) * w, y: h - Math.max(0.01, Math.min(0.99, p)) * h, price: p }));
     lineData.push({ idx: i, name: options[i], color, pts });
   }
 
   function render(hoveredIdx, hoverX) {
     ctx.clearRect(0, 0, w, h);
-
-    // Grid Lines (Horizontal only like Polymarket)
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i++) {
-      const y = (h / 5) * i;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
-
+    ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) { const y = (h / 5) * i; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
     for (const line of lineData) {
       const isHovered = hoveredIdx === line.idx;
-      const isDimmed = hoveredIdx !== null && !isHovered;
-      const alpha = isDimmed ? 0.2 : 1.0;
-      const lineW = isHovered ? 2.5 : 1.5;
-
-      ctx.beginPath();
-      line.pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.strokeStyle = line.color;
-      ctx.lineWidth = lineW;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.globalAlpha = alpha;
-      ctx.stroke();
-
-      // Dot at current price (end)
-      const last = line.pts[line.pts.length - 1];
-      ctx.beginPath();
-      ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = line.color;
-      ctx.fill();
+      const alpha = hoveredIdx !== null && !isHovered ? 0.2 : 1.0;
+      ctx.beginPath(); line.pts.forEach((p, t) => t === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.strokeStyle = line.color; ctx.lineWidth = isHovered ? 2.5 : 1.5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.globalAlpha = alpha; ctx.stroke();
+      const last = line.pts[line.pts.length - 1]; ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, Math.PI * 2); ctx.fillStyle = line.color; ctx.fill();
     }
-
-    if (hoverX !== null) {
-      ctx.beginPath();
-      ctx.moveTo(hoverX, 0);
-      ctx.lineTo(hoverX, h);
-      ctx.strokeStyle = "rgba(255,255,255,0.1)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.font = "500 11px Inter, sans-serif";
-    ctx.globalAlpha = 1.0;
-    ctx.textAlign = "right";
-    ctx.fillText("100%", w, 12);
-    ctx.fillText("80%", w, h * 0.2 + 4);
-    ctx.fillText("60%", w, h * 0.4 + 4);
-    ctx.fillText("40%", w, h * 0.6 + 4);
-    ctx.fillText("20%", w, h * 0.8 + 4);
+    if (hoverX !== null) { ctx.beginPath(); ctx.moveTo(hoverX, 0); ctx.lineTo(hoverX, h); ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1; ctx.stroke(); }
+    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.font = "500 11px Inter, sans-serif"; ctx.globalAlpha = 1.0; ctx.textAlign = "right";
+    ctx.fillText("100%", w, 12); ctx.fillText("80%", w, h * 0.2 + 4); ctx.fillText("60%", w, h * 0.4 + 4); ctx.fillText("40%", w, h * 0.6 + 4); ctx.fillText("20%", w, h * 0.8 + 4);
   }
 
   render(null, null);
 
   const tooltip = document.getElementById("chart-tooltip");
   canvas.onmousemove = function(e) {
-    const rect2 = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect2.left;
-
-    let bestDist = Infinity;
-    let bestPt = null;
-    let bestLine = null;
-
+    const rect2 = canvas.getBoundingClientRect(); const mx = e.clientX - rect2.left;
+    let bestDist = Infinity, bestPt = null, bestLine = null;
     for (const line of lineData) {
-      for (const pt of line.pts) {
-        const dist = Math.abs(pt.x - mx);
-        if (dist < bestDist) { bestDist = dist; bestPt = pt; bestLine = line; }
-      }
+      for (const pt of line.pts) { const dist = Math.abs(pt.x - mx); if (dist < bestDist) { bestDist = dist; bestPt = pt; bestLine = line; } }
     }
-
     if (bestPt && bestDist < 40) {
       render(bestLine.idx, bestPt.x);
-      
-      // Date stub
-      let html = `<div class="tt-title">May 31</div>`;
-      
+      let html = `<div class="tt-title">Time</div>`;
       const sorted = [...lineData].sort((a, b) => {
-        const aPt = a.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
-        const bPt = b.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
+        const aPt = a.pts.find(p => Math.abs(p.x - bestPt.x) < 1), bPt = b.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
         return (bPt ? bPt.price : 0) - (aPt ? aPt.price : 0);
       });
       for (const line of sorted) {
         const pt = line.pts.find(p => Math.abs(p.x - bestPt.x) < 1);
-        if (pt) {
-          const isHl = line.idx === bestLine.idx;
-          html += `<div class="tt-row" style="${isHl ? 'opacity:1' : 'opacity:.5'}">
-            <div style="display:flex;align-items:center"><span class="tt-dot" style="background:${line.color}"></span><span>${line.name}</span></div>
-            <span style="font-weight:700">${pct(pt.price)}</span>
-          </div>`;
-        }
+        if (pt) { html += `<div class="tt-row" style="${line.idx === bestLine.idx ? 'opacity:1' : 'opacity:.5'}"><div style="display:flex;align-items:center"><span class="tt-dot" style="background:${line.color}"></span><span>${line.name}</span></div><span style="font-weight:700">${pct(pt.price)}</span></div>`; }
       }
-      tooltip.innerHTML = html;
-      tooltip.style.display = "block";
-      
-      // Position tooltip avoiding edges
-      let ttX = bestPt.x + 16;
-      if (ttX + 180 > w) ttX = bestPt.x - 180 - 16;
-      tooltip.style.left = ttX + "px";
-      tooltip.style.top = Math.max(bestPt.y - 40, 10) + "px";
-    } else {
-      render(null, null);
-      tooltip.style.display = "none";
-    }
+      tooltip.innerHTML = html; tooltip.style.display = "block";
+      let ttX = bestPt.x + 16; if (ttX + 180 > w) ttX = bestPt.x - 180 - 16;
+      tooltip.style.left = ttX + "px"; tooltip.style.top = Math.max(bestPt.y - 40, 10) + "px";
+    } else { render(null, null); tooltip.style.display = "none"; }
   };
+  canvas.onmouseleave = function() { render(null, null); tooltip.style.display = "none"; };
+}
 
-  canvas.onmouseleave = function() {
-    render(null, null);
-    tooltip.style.display = "none";
-  };
+// ── Pages: Leaderboard, Prizes, Profile, Admin ──
+async function loadLeaderboard() {
+  try {
+    const leaders = await api("/api/leaderboard");
+    document.getElementById("lb-body").innerHTML = leaders.slice(0, 50).map((l, i) => `
+      <tr>
+        <td class="${i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : ''}">#${i + 1}</td>
+        <td><strong>${l.display_name || l.username}</strong></td>
+        <td>${l.correct_predictions}</td>
+        <td>${l.total_predictions > 0 ? Math.round(l.correct_predictions / l.total_predictions * 100) + "%" : "-"}</td>
+        <td>${l.current_streak > 0 ? "🔥 " + l.current_streak : "-"}</td>
+        <td>${fmtPoints(l.coins)}</td>
+      </tr>`).join("");
+  } catch (e) { console.error(e); }
+}
+
+async function loadPrizes() {
+  try {
+    const prizes = await api("/api/prizes");
+    document.getElementById("prizes-grid").innerHTML = prizes.map(p => `
+      <div class="prize-card">
+        <div class="prize-icon">${p.icon}</div>
+        <h4 style="font-weight:600;font-size:16px">${p.label}</h4>
+        <div class="prize-cost">🪙 ${p.coinsCost.toLocaleString()}</div>
+        <button class="btn-primary" style="margin-top:16px;width:100%;padding:10px" onclick="redeem('${p.id}')">Redeem</button>
+      </div>`).join("");
+  } catch (e) { console.error(e); }
+}
+
+async function redeem(id) {
+  if (!token) return showAuth("signup");
+  try { const d = await api("/api/redeem", { method: "POST", body: JSON.stringify({ prizeId: id }) }); toast(d.message); loadMe(); }
+  catch (e) { toast(e.message); }
+}
+
+async function loadProfile() {
+  if (!token) return showAuth("signin");
+  try {
+    const u = await api("/api/me");
+    document.getElementById("profile-email").textContent = u.email || `@${u.username}`;
+    document.getElementById("profile-content").innerHTML = `
+      <div class="profile-stats">
+        <div class="stat-card"><div class="lbl">Rank</div><div class="val">#${u.rank}</div></div>
+        <div class="stat-card"><div class="lbl">Predictions</div><div class="val">${u.total_predictions}</div></div>
+        <div class="stat-card"><div class="lbl">Correct</div><div class="val">${u.correct_predictions}</div></div>
+        <div class="stat-card"><div class="lbl">Accuracy</div><div class="val">${u.total_predictions > 0 ? Math.round(u.correct_predictions / u.total_predictions * 100) + "%" : "-"}</div></div>
+        <div class="stat-card"><div class="lbl">Streak</div><div class="val">${u.current_streak > 0 ? "🔥 " + u.current_streak : "-"}</div></div>
+        <div class="stat-card"><div class="lbl" style="color:var(--blue)">Coins</div><div class="val" style="color:var(--blue)">${fmtPoints(u.coins)}</div></div>
+      </div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">Recent Activity</h3>
+      ${(u.recentTransactions || []).map(t => `
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px">
+          <span>${t.description}</span>
+          <span style="color:${t.amount > 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${t.amount > 0 ? '+' : ''}${t.amount}</span>
+        </div>`).join("") || '<p style="color:var(--text3)">No activity yet</p>'}
+    `;
+  } catch (e) { toast(e.message); }
+}
+
+async function loadAdmin() {
+  const el = document.getElementById("admin-content");
+  try {
+    const pending = await api("/api/admin/pending-markets");
+    if (pending.length === 0) { el.innerHTML = '<div class="loading">No pending markets 🎉</div>'; return; }
+    el.innerHTML = pending.map(m => `
+      <div class="market-card" style="margin-bottom:16px;cursor:default">
+        <div style="font-weight:600;font-size:16px;margin-bottom:8px">${m.question}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Cat: ${m.category} · By: ${m.creator_name || "unknown"}</div>
+        <div style="font-size:14px;color:var(--text2);margin-bottom:16px">${m.description || ""}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          ${(JSON.parse(m.outcomes || "[]") || []).map(o => `<span style="padding:4px 10px;border-radius:12px;background:var(--bg2);font-size:13px">${o}</span>`).join("")}
+        </div>
+        <div style="display:flex;gap:12px">
+          <button class="btn-green" style="padding:8px 16px;border-radius:6px;font-weight:600" onclick="approveMarket('${m.id}')">Approve</button>
+          <button class="btn-red" style="padding:8px 16px;border-radius:6px;font-weight:600" onclick="rejectMarket('${m.id}')">Reject</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) { el.innerHTML = `<div class="loading" style="color:var(--red)">${e.message}</div>`; }
+}
+
+async function approveMarket(id) {
+  try { await api("/api/admin/approve-market/" + id, { method: "POST", body: "{}" }); toast("Market approved!"); loadAdmin(); } catch (e) { toast(e.message); }
+}
+async function rejectMarket(id) {
+  try { await api("/api/admin/reject-market/" + id, { method: "POST", body: "{}" }); toast("Market rejected"); loadAdmin(); } catch (e) { toast(e.message); }
+}
+
+// ── Submit Market Modal ──
+function showSubmitMarket() { document.getElementById("submit-modal").classList.remove("hidden"); }
+function closeSubmit() { document.getElementById("submit-modal").classList.add("hidden"); }
+function addOutcomeInput() {
+  const container = document.getElementById("outcome-inputs");
+  if (container.children.length >= 10) return;
+  const div = document.createElement("div"); div.style.cssText = "display:flex;gap:8px;margin-bottom:8px";
+  div.innerHTML = `<input type="text" class="outcome-input" placeholder="Outcome ${container.children.length + 1}">`;
+  container.appendChild(div);
+  if (container.children.length >= 10) document.getElementById("add-outcome-btn").style.display = "none";
+}
+async function submitMarket() {
+  const question = document.getElementById("submit-question").value.trim();
+  const desc = document.getElementById("submit-desc").value.trim();
+  const category = document.getElementById("submit-category").value;
+  const outcomes = Array.from(document.querySelectorAll(".outcome-input")).map(i => i.value.trim()).filter(v => v);
+  if (!question || outcomes.length < 2) return toast("Question and at least 2 outcomes required");
+  try {
+    await api("/api/markets/submit", { method: "POST", body: JSON.stringify({ question, description: desc, category, outcomes }) });
+    toast("Submitted for review! +100 🪙 when approved.");
+    closeSubmit();
+  } catch (e) { toast(e.message); }
 }
 
 loadMe().then(() => { loadData(); });
