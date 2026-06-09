@@ -528,6 +528,202 @@ app.post("/api/admin/reject-market/:id", auth, isAdmin, (req, res) => {
   } finally { d.close(); }
 });
 
+// ── ADMIN: full CRUD
+// List all markets (including inactive/rejected) for admin
+app.get("/api/admin/all-markets", auth, isAdmin, (req, res) => {
+  const d = db();
+  try {
+    const markets = d.prepare(`
+      SELECT m.*, u.username as creator_name,
+        (SELECT COUNT(*) FROM predictions WHERE market_id=m.id) as prediction_count
+      FROM markets m LEFT JOIN users u ON m.creator_id=u.id
+      ORDER BY m.created_at DESC
+    `).all();
+    res.json(markets);
+  } finally { d.close(); }
+});
+
+// Admin: create a market directly (auto-approved)
+app.post("/api/admin/create-market", auth, isAdmin, (req, res) => {
+  const { question, description, category, outcomes, closes_at } = req.body;
+  if (!question || !question.trim()) return res.status(400).json({ error: "Question required" });
+  if (!outcomes || !Array.isArray(outcomes) || outcomes.length < 2)
+    return res.status(400).json({ error: "Need at least 2 outcomes" });
+
+  const cleanOutcomes = outcomes.map(o => String(o).trim()).filter(o => o.length > 0);
+  if (cleanOutcomes.length < 2) return res.status(400).json({ error: "Need at least 2 non-empty outcomes" });
+
+  const d = db();
+  try {
+    const cat = category && typeof category === "string" ? category.trim().toLowerCase().slice(0, 20) : "general";
+    const marketId = "mkt-" + uuid().slice(0, 8);
+    const now = new Date().toISOString();
+    const isBinary = cleanOutcomes.length === 2 ? "binary" : "multiple";
+    const prices = cleanOutcomes.map(() => 1.0 / cleanOutcomes.length);
+
+    d.prepare("INSERT INTO markets (id,question,description,category,creator_id,resolution_type,outcomes,status,submission_status,created_at,updated_at,closes_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+      .run(marketId, question.trim(), (description||"").trim(), cat, req.user.userId, isBinary, JSON.stringify(cleanOutcomes), "active", "approved", now, now, closes_at || null);
+
+    for (let i = 0; i < cleanOutcomes.length; i++) {
+      const optId = marketId + "-opt-" + i;
+      d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
+        .run(optId, marketId, cleanOutcomes[i], prices[i], now, now);
+      d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
+        .run(uuid(), marketId, i, prices[i], now);
+    }
+
+    res.json({ id: marketId, message: "Market created and approved" });
+  } finally { d.close(); }
+});
+
+// Admin: edit a market
+app.put("/api/admin/markets/:id", auth, isAdmin, (req, res) => {
+  const { question, description, category, outcomes, status, closes_at } = req.body;
+  const d = db();
+  try {
+    const m = d.prepare("SELECT * FROM markets WHERE id=?").get(req.params.id);
+    if (!m) return res.status(404).json({ error: "Market not found" });
+
+    const now = new Date().toISOString();
+    const updates = [];
+    const params = [];
+
+    if (question !== undefined) { updates.push("question=?"); params.push(question.trim()); }
+    if (description !== undefined) { updates.push("description=?"); params.push(description.trim()); }
+    if (category !== undefined) { updates.push("category=?"); params.push(category.trim().toLowerCase()); }
+    if (status !== undefined) { updates.push("status=?"); params.push(status); }
+    if (closes_at !== undefined) { updates.push("closes_at=?"); params.push(closes_at); }
+
+    if (updates.length > 0) {
+      updates.push("updated_at=?");
+      params.push(now);
+      params.push(req.params.id);
+      d.prepare(`UPDATE markets SET ${updates.join(",")} WHERE id=?`).run(...params);
+    }
+
+    // If outcomes changed, replace them
+    if (outcomes && Array.isArray(outcomes) && outcomes.length >= 2) {
+      const cleanOutcomes = outcomes.map(o => String(o).trim()).filter(o => o.length > 0);
+      if (cleanOutcomes.length >= 2) {
+        d.prepare("UPDATE markets SET outcomes=?, resolution_type=?, updated_at=? WHERE id=?")
+          .run(JSON.stringify(cleanOutcomes), cleanOutcomes.length === 2 ? "binary" : "multiple", now, req.params.id);
+
+        // Delete old options and price history, re-insert
+        d.prepare("DELETE FROM market_options WHERE market_id=?").run(req.params.id);
+        d.prepare("DELETE FROM price_history WHERE market_id=?").run(req.params.id);
+        for (let i = 0; i < cleanOutcomes.length; i++) {
+          const optId = req.params.id + "-opt-" + i;
+          const price = 1.0 / cleanOutcomes.length;
+          d.prepare("INSERT INTO market_options (id,market_id,outcome_name,current_price,created_at,updated_at) VALUES (?,?,?,?,?,?)")
+            .run(optId, req.params.id, cleanOutcomes[i], price, now, now);
+          d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
+            .run(uuid(), req.params.id, i, price, now);
+        }
+      }
+    }
+
+    res.json({ message: "Market updated" });
+  } finally { d.close(); }
+});
+
+// Admin: delete a market
+app.delete("/api/admin/markets/:id", auth, isAdmin, (req, res) => {
+  const d = db();
+  try {
+    const m = d.prepare("SELECT * FROM markets WHERE id=?").get(req.params.id);
+    if (!m) return res.status(404).json({ error: "Market not found" });
+
+    // Refund all prediction stakes
+    const preds = d.prepare("SELECT * FROM predictions WHERE market_id=? AND is_correct IS NULL").all(req.params.id);
+    for (const p of preds) {
+      d.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").run(p.coins_at_stake, p.user_id);
+      d.prepare("DELETE FROM coin_transactions WHERE reference_id = ?").run(p.id);
+    }
+
+    // Delete related data
+    d.prepare("DELETE FROM predictions WHERE market_id=?").run(req.params.id);
+    d.prepare("DELETE FROM price_history WHERE market_id=?").run(req.params.id);
+    d.prepare("DELETE FROM market_options WHERE market_id=?").run(req.params.id);
+    d.prepare("DELETE FROM markets WHERE id=?").run(req.params.id);
+
+    res.json({ message: `Market deleted. Refunded ${preds.length} predictions.` });
+  } finally { d.close(); }
+});
+
+// Admin: end/resolve a market
+app.post("/api/admin/end-market/:id", auth, isAdmin, (req, res) => {
+  const { outcome } = req.body; // "yes", "no", or outcome index as string
+  if (!outcome && outcome !== "0") return res.status(400).json({ error: "Outcome required" });
+
+  const d = db();
+  try {
+    const market = d.prepare("SELECT * FROM markets WHERE id=? AND status='active'").get(req.params.id);
+    if (!market) return res.status(404).json({ error: "Active market not found" });
+
+    const outcomes = JSON.parse(market.outcomes || "[]");
+    const winningIdx = parseInt(outcome);
+    if (winningIdx < 0 || winningIdx >= outcomes.length)
+      return res.status(400).json({ error: `Invalid outcome index. 0-${outcomes.length - 1}` });
+
+    const now = new Date().toISOString();
+    const winName = outcomes[winningIdx];
+
+    // Resolve predictions
+    const preds = d.prepare("SELECT * FROM predictions WHERE market_id=? AND is_correct IS NULL").all(req.params.id);
+    let totalPool = 0, winningPool = 0, winners = 0;
+
+    for (const p of preds) {
+      totalPool += p.coins_at_stake;
+      if (parseInt(p.outcome) === winningIdx) winningPool += p.coins_at_stake;
+    }
+
+    for (const p of preds) {
+      const won = parseInt(p.outcome) === winningIdx;
+      d.prepare("UPDATE predictions SET is_correct=?, resolved_at=? WHERE id=?").run(won ? 1 : 0, now, p.id);
+
+      if (won && winningPool > 0) {
+        winners++;
+        const profit = Math.floor((p.coins_at_stake / winningPool) * (totalPool - winningPool));
+        const totalWin = p.coins_at_stake + profit;
+        d.prepare("UPDATE users SET coins = coins + ?, correct_predictions = correct_predictions + 1 WHERE id = ?").run(totalWin, p.user_id);
+        d.prepare("INSERT INTO coin_transactions (id,user_id,amount,type,description,reference_id,balance_after,created_at) VALUES (?,?,?,?,?,?,?,?)")
+          .run(uuid(), p.user_id, totalWin, "prediction_win", `Won: "${winName}" on "${market.question.slice(0,40)}"`, p.id,
+            d.prepare("SELECT coins FROM users WHERE id=?").get(p.user_id).coins, now);
+      }
+    }
+
+    // Mark market resolved
+    d.prepare("UPDATE markets SET status='resolved', outcome=?, resolved_at=?, updated_at=? WHERE id=?")
+      .run(String(winningIdx), now, now, req.params.id);
+
+    // Record final price (1.0 for winner, 0.0 for losers)
+    d.prepare("DELETE FROM price_history WHERE market_id=? AND recorded_at > datetime('now','-1 second')").run(req.params.id);
+    for (let i = 0; i < outcomes.length; i++) {
+      d.prepare("INSERT INTO price_history (id,market_id,outcome_index,price,recorded_at) VALUES (?,?,?,?,?)")
+        .run(uuid(), req.params.id, i, i === winningIdx ? 1.0 : 0.0, now);
+      const optId = req.params.id + "-opt-" + i;
+      const existing = d.prepare("SELECT id FROM market_options WHERE id=?").get(optId);
+      if (existing) d.prepare("UPDATE market_options SET current_price=?, updated_at=? WHERE id=?").run(i === winningIdx ? 1.0 : 0.0, now, optId);
+    }
+
+    res.json({ message: `Market resolved: "${winName}" won. ${winners} winners from ${preds.length} predictions.` });
+  } finally { d.close(); }
+});
+
+// ── ADMIN: dashboard stats
+app.get("/api/admin/stats", auth, isAdmin, (req, res) => {
+  const d = db();
+  try {
+    const users = d.prepare("SELECT COUNT(*) as c FROM users").get();
+    const markets = d.prepare("SELECT COUNT(*) as c FROM markets WHERE submission_status='approved'").get();
+    const active = d.prepare("SELECT COUNT(*) as c FROM markets WHERE status='active' AND submission_status='approved'").get();
+    const pending = d.prepare("SELECT COUNT(*) as c FROM markets WHERE submission_status='pending'").get();
+    const preds = d.prepare("SELECT COUNT(*) as c FROM predictions").get();
+    const volume = d.prepare("SELECT SUM(total_volume) as s FROM markets").get();
+    res.json({ users: users.c, markets: markets.c, active: active.c, pending: pending.c, predictions: preds.c, totalVolume: volume.s || 0 });
+  } finally { d.close(); }
+});
+
 // ── PREDICTIONS
 app.post("/api/predict", auth, (req, res) => {
   const { marketId, outcome, coins } = req.body;
